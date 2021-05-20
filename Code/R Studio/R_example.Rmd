@@ -1,0 +1,400 @@
+---
+title: "Spectral parameterization for studying neurodevelopment: How and why"
+subtitle: "Illustrative example using the spectral parameterization (specparam) algorithm"
+author: "Brendan Ostlund, Thomas Donoghue, Berenice Anaya, Kelley E. Gunther, Sarah L. Karalunas, Bradley Voytek, & Koraly E. Pérez-Edgar"
+output: html_document
+---
+This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [Open Science Framework](https://osf.io/efj6c/) and GitHub pages for this project.
+
+Analyses for the illustrative example are based on the eyes-closed condition of a resting baseline task (*n* = 60). Please see the corresponding manuscript for more details. A few code chunks described the "R_groupPSD.Rmd" tutorial have been merged in the script below to reduce length.
+
+**Note:** Demographic information was reported in the manuscript but are not examined here in order to protect confidentiality of our participants.
+
+
+## **1.** Prepare data
+### Load data
+```{r}
+setwd("~/Desktop/specparam")
+
+data <- read.csv("ecl.csv", header= TRUE)
+PSDs <- read.csv("eclPSDs.csv", header= TRUE)
+freq <- read.csv("freqs.csv", header= TRUE)
+```
+
+### Load R libraries 
+```{r, message= FALSE}
+library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
+library(reticulate)  # Interface Python and R Studio
+library(magick)      # Load and adjust .PNG files
+library(gridExtra)   # Arrange multiple plots 
+
+library(psych)       # Toolbox for data analysis 
+library(sjstats)     # Toolbox for data analysis
+library(ggpubr)      # Additional tools for data visualization
+```
+
+### Load python libraries
+```{python}
+import pandas as pd
+import numpy as np
+import sys
+import os
+import matplotlib
+import tqdm
+import pytest
+
+from fooof import FOOOFGroup
+from fooof.bands import Bands
+from fooof.analysis import get_band_peak_fg
+from fooof.plts.periodic import plot_peak_fits, plot_peak_params
+from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
+```
+
+### Miscellaneous functions
+The *extract_legend* function was created by [Joachim Schork](https://statisticsglobe.com/add-common-legend-to-combined-ggplot2-plots-in-r/). The *spread_n* function was pulled from this [post](https://community.rstudio.com/t/spread-with-multiple-value-columns/5378) from the RStudio Community website.
+``` {r}
+extract_legend <- 
+  function(my_ggp) {
+    step1 <- ggplot_gtable(ggplot_build(my_ggp))
+    step2 <- which(sapply(step1$grobs, function(x) x$name)== "guide-box")
+    step3 <- step1$grobs[[step2]]
+    return(step3)
+    }
+
+spread_n <- 
+  function(df, key, value) {
+    keyq <- rlang::enquo(key)
+    valueq <- rlang::enquo(value)
+    s <- rlang::quos(!!valueq)
+    df %>% gather(variable, value, !!!s) %>%
+    unite(temp, !!keyq, variable) %>%
+    spread(temp, value)
+    }
+```
+
+## **2.** Compare fitted group power spectra
+### Load group PSDs
+```{python, message= FALSE}
+freqs= np.ravel(pd.read_csv("freqs.csv"))                                                             
+spectra= np.array(pd.read_csv("eclPSDs.csv"))  
+
+print(freqs.shape)                                                                                        
+print(spectra.shape)                                            
+```
+
+### Fit group PSDs
+```{python, warning= FALSE, message= FALSE}
+fg= FOOOFGroup(peak_width_limits= [1, 8], max_n_peaks= 8, min_peak_height= 0.05, verbose= 'FALSE')  
+fg.fit(freqs, spectra, [1, 50]) 
+fg.print_results()                                                                                     
+
+fg.save_report('ECL_example')                                                                             
+fg.plot(save_fig= True, file_name= "ECL_example")  
+
+fg_aps= fg.get_params('aperiodic_params')                                                           
+fg_r2s= fg.get_params('r_squared')                                                                  
+fg_errors= fg.get_params('error')                                                                      
+
+bands= Bands({'delta':[1, 4], 'theta':[4, 8], 'alpha':[8, 13], 'beta':[13, 30], 'gamma':[30, 50]})    
+deltas= get_band_peak_fg(fg, bands.delta)                                                             
+thetas= get_band_peak_fg(fg, bands.theta)                                                              
+alphas= get_band_peak_fg(fg, bands.alpha)                                                              
+betas=  get_band_peak_fg(fg, bands.beta)                                                                    
+gammas= get_band_peak_fg(fg, bands.gamma)                                                              
+```
+
+### Save to R data frame 
+```{r, message= FALSE}
+aps <- as.data.frame(py$fg_aps) %>% rename(offset= 1, exponent= 2)                                     
+r2s <- as.data.frame(py$fg_r2s) %>% rename(r2s= 1)                                                     
+err <- as.data.frame(py$fg_errors) %>% rename(error= 1)                                               
+
+deltas <- as.data.frame(py$deltas) %>% 
+           rename(CF_delta= 1, PW_delta= 2, BW_delta= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+thetas <- as.data.frame(py$thetas) %>% 
+           rename(CF_theta= 1, PW_theta= 2, BW_theta= 3) %>%
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+alphas <- as.data.frame(py$alphas) %>% 
+           rename(CF_alpha= 1, PW_alpha= 2, BW_alpha= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+betas  <- as.data.frame(py$betas) %>% 
+           rename(CF_beta= 1, PW_beta= 2, BW_beta= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))       
+gammas <- as.data.frame(py$gammas) %>% 
+           rename(CF_gamma= 1, PW_gamma= 2, BW_gamma= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+
+dat_param <- data %>% 
+              select(ID:GRP) %>% 
+              cbind(., aps, r2s, err, deltas, thetas, alphas, betas, gammas) %>% 
+              mutate(GRP= recode(GRP, BLN= "BI", NT= "BN"))
+write.csv(dat_param, "ECL_example.csv", row.names= FALSE)                                                 
+```
+
+### Descriptive information
+```{r, warning= FALSE, message= FALSE}
+dat_param %>% describe(skew= FALSE)
+dat_param %>% filter(GRP== "BI") %>% describe(skew= FALSE)
+dat_param %>% filter(GRP== "BN") %>% describe(skew= FALSE)
+```
+
+### Print group fit results 
+```{r, message= FALSE}
+print(image_read("~/Desktop/specparam/ECL_example.png"))
+```
+
+### Plot periodic and aperiodic parameters
+```{r, warning= FALSE, fig.height= 5, fig.width= 17}
+fig5a <- ggplot(dat_param, aes(x= GRP, y= offset, fill= GRP)) +
+          geom_jitter(alpha= 0.7, width= 0.05, size= 2, aes(color= GRP)) +
+          theme_classic() +
+          labs(tag= "A)", title= "Offset") +
+          stat_summary(fun.y=mean, shape= 23, size= 1.5, color= c("coral4","cyan4")) + 
+          scale_x_discrete(name= "", expand= c(1, 0), labels= NULL) +
+          scale_y_continuous(name= "", limits= c(0.25,2.25), breaks= seq(0.25,2.25,0.5), expand= c(0, 0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+               plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +      
+          theme(legend.position= "none")
+
+fig5b <- ggplot(dat_param, aes(x= GRP, y= exponent, fill= GRP)) +
+          geom_jitter(alpha= 0.7, width= 0.05, size= 2, aes(color= GRP)) +
+          theme_classic() +
+          labs(tag= "B)", title= "Exponent") +
+          stat_summary(fun.y=mean, shape= 23, size= 1.5, color= c("coral4","cyan4")) + 
+          scale_x_discrete(name= "", expand= c(1, 0), labels= NULL) +
+          scale_y_continuous(name= "", limits= c(0.25,2.25), breaks= seq(0.25,2.25,0.5), expand= c(0, 0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
+               plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +      
+          theme(legend.position= "none")
+
+fig5c <- ggplot(dat_param, aes(x= CF_theta, y= PW_theta, size= BW_theta, fill= BW_theta, color= GRP)) +
+          geom_point(alpha= 0.7) +
+          theme_classic() +
+          labs(tag= "C)", title= "Theta (4-8Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(3.75,8.25), breaks= seq(4,8, by= 1), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          geom_vline(xintercept= 6.61, linetype= "dashed", color= "coral3", size= 1.50) +
+          geom_vline(xintercept= 5.84, linetype= "dashed", color= "darkcyan", size= 1.50) +
+          theme(legend.position= "none")
+
+fig5d <- ggplot(dat_param, aes(x= CF_alpha, y= PW_alpha, size= BW_alpha, fill= BW_alpha, color= GRP)) +
+          geom_point(alpha= 0.7) + 
+          theme_classic() +
+          labs(tag= "D)",  title= "Alpha (8-13Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(7.75,13.25), breaks= seq(8,13, by= 1), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          geom_vline(xintercept= 9.96, linetype= "dashed", color= "coral3", size= 1.50) +
+          geom_vline(xintercept= 9.64, linetype= "dashed", color= "darkcyan", size= 1.50) +
+          theme(legend.position= "none")
+
+fig5e <- ggplot(dat_param, aes(x= CF_beta, y= PW_beta, size= BW_beta, fill= BW_beta, color= GRP)) +
+          geom_point(alpha= 0.7) + 
+          theme_classic() +
+          labs(tag= "E)", title= "Beta (13-30Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(12.50,30.50), breaks= seq(13,30, by= 3), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          geom_vline(xintercept= 18.62, linetype= "dashed", color= "coral3", size= 1.50) +
+          geom_vline(xintercept= 16.96, linetype= "dashed", color= "darkcyan", size= 1.50) +     
+          theme(legend.position= "none")
+
+fig5f <- ggplot(dat_param, aes(x= CF_gamma, y= PW_gamma, size= BW_gamma, fill= BW_gamma, color= GRP)) +
+          geom_point(alpha= 0.7) + 
+          theme_classic() +
+          labs(tag= "F)", title= "Gamma (30-50Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(29.50,50.50), breaks= seq(30,50, by= 5), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          geom_vline(xintercept= 36.39, linetype= "dashed", color= "coral3", size= 1.50) +
+          geom_vline(xintercept= 38.37, linetype= "dashed", color= "darkcyan", size= 1.50) +
+          theme(legend.position= "none")
+
+legend <- ggplot(dat_param, aes(x= CF_gamma, fill= GRP)) +
+           geom_density(alpha= 0.5) +
+           scale_fill_discrete(name= "", labels= c("BI", "BN")) +
+           theme(legend.position= "bottom") +
+           theme(legend.title= element_text(size= 16, face= "bold"), legend.text= element_text(size = 16), 
+                 legend.key.height= unit(0.50, 'cm'), legend.key.width= unit(1, 'cm'))
+
+shared_legend <- extract_legend(legend)
+grid.arrange(arrangeGrob(fig5a, fig5b, fig5c, fig5d, fig5e, fig5f, nrow= 1), shared_legend, heights= c(8, 1))
+```
+
+### Group comparisons of periodic and aperiodic activity
+```{r}
+t.test(offset~ GRP, data= dat_param, var.equal= TRUE)
+t.test(exponent~ GRP, data= dat_param, var.equal= TRUE)
+
+t.test(CF_alpha~ GRP, data= dat_param, var.equal= TRUE)
+t.test(PW_alpha~ GRP, data= dat_param, var.equal= TRUE)
+t.test(BW_alpha~ GRP, data= dat_param, var.equal= TRUE)
+
+t.test(CF_beta~ GRP, data= dat_param, var.equal= TRUE)
+t.test(PW_beta~ GRP, data= dat_param, var.equal= TRUE)
+t.test(BW_beta~ GRP, data= dat_param, var.equal= TRUE)
+```
+
+
+## **3.** Compare frontal alpha asymmetry calculation methods
+### Calculate frontal asymmetry using traditional analysis
+```{r}
+trad <- read.csv("asm.csv", header= TRUE) %>% 
+         select(-c(X01:X07,X14:X50)) %>%
+         mutate(X08= log10(X08), X09= log10(X09), X10= log10(X10), 
+                X11= log10(X11), X12= log10(X12), X13= log10(X13)) %>% 
+         mutate(alpha= mean_n(.[c(4:9)], 1)) %>%
+         select(ID,GRP,hem,alpha) %>%
+         spread(hem,alpha) %>% 
+         mutate(ASM_trad= right - left) 
+```
+
+### Calculate specparam frontal asymmetry 
+#### Load group PSDs
+```{python}
+freqs= np.ravel(pd.read_csv("freqs.csv"))                                                             
+spectra= np.array(pd.read_csv("asmPSDs.csv"))
+print(freqs.shape)                                                                                        
+print(spectra.shape)                                            
+```
+
+### Fit group PSDs
+```{python, warning= FALSE, message= FALSE}
+fg= FOOOFGroup(peak_width_limits= [1, 8], max_n_peaks= 8, min_peak_height= 0.05, verbose= 'FALSE')  
+fg.fit(freqs, spectra, [1, 50]) 
+fg.print_results()      
+
+fg.save_report('ASM_example')                                                                             
+fg.plot(save_fig= True, file_name= "ASM_example")  
+
+band = Bands({'alpha' : [8, 13]})
+alphas= get_band_peak_fg(fg, band.alpha)
+fg_aps= fg.get_params('aperiodic_params') 
+```
+
+#### Save to R dataframe 
+```{r, warning= FALSE, message= FALSE}
+alphas <- as.data.frame(py$alphas) %>% 
+            rename(CF_alpha= 1, PW_alpha= 2, BW_alpha= 3) %>% 
+            mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
+
+aps <- as.data.frame(py$fg_aps) %>% rename(offset= 1, exponent= 2)                                     
+
+asm <- read.csv("asm.csv", header= TRUE) %>% 
+        select(ID:hem) %>% 
+        cbind(alphas, aps) 
+
+write.csv(asm, "ASM_example.csv", row.names= FALSE)
+
+specparam <- asm %>% 
+              group_by(ID) %>%
+              filter(!is.na(PW_alpha)) %>% 
+              summarise(missing_lat= all(PW_alpha== PW_alpha[1L])) %>% 
+              filter(missing_lat== FALSE) %>% 
+              left_join(., asm, by= "ID") %>% 
+              select(ID,GRP,hem,PW_alpha,exponent) %>% 
+              spread_n(hem,c(PW_alpha,exponent)) %>% 
+              mutate(ASM_param= right_PW_alpha - left_PW_alpha, exp_lateralized= right_exponent - left_exponent) 
+
+asm.wide <- left_join(trad, specparam, by= c("ID","GRP")) %>% mutate(GRP= recode(GRP, BLN= "BI", NT= "BN"))
+```
+
+### Compare measurement approaches
+```{r, warning= FALSE, fig.height= 5, fig.width= 5}
+asm.wide %>% filter(GRP== "BI") %>% select(ASM_trad,ASM_param) %>% describe(skew= FALSE)
+asm.wide %>% filter(GRP== "BN") %>% select(ASM_trad,ASM_param) %>% describe(skew= FALSE)
+
+
+fig5g <- ggscatter(asm.wide, x= "ASM_trad", y= "ASM_param", color= "GRP", size= 3, alpha= 0.7) +
+          theme_classic() +
+          scale_x_continuous(name= "Frontal asymmetry (traditional)", 
+                             limits= c(-.40,.45), breaks= seq(-.40,0.5,0.2), expand= c(0, 0)) +
+          scale_y_continuous(name= "Frontal asymmetry (specparam)", 
+                             limits= c(-.40,.45), breaks= seq(-.40,0.5,0.2), expand= c(0, 0)) +
+          annotate("text", x= 0.25, y= -0.25, label= "r(55) = 0.01, p = ns", fontface= "bold", size= 4) +
+          theme(legend.position= "none") 
+xplot <- ggdensity(asm.wide, "ASM_trad", fill= "GRP") + 
+          clean_theme() + 
+          theme(legend.position= "none")
+yplot <- ggdensity(asm.wide, "ASM_param", fill= "GRP") +
+          clean_theme() + 
+          theme(legend.position= "none") + 
+          rotate()
+layout1 <- rbind(c(2,2,2,NA), c(1,1,1,3), c(1,1,1,3), c(1,1,1,3))
+grid.arrange(arrangeGrob(fig5g, xplot, yplot, layout_matrix= layout1), shared_legend, heights= c(8, 1)) 
+
+
+cor.test(asm.wide$ASM_trad, asm.wide$ASM_param, method= "pearson")
+
+t.test(ASM_trad~ GRP, data= asm.wide, var.equal= TRUE)
+t.test(ASM_param~ GRP, data= asm.wide, var.equal= TRUE)
+
+
+asm.long <- asm.wide %>% 
+             group_by(ID) %>% 
+             select(ID,GRP,ASM_trad,ASM_param) %>% 
+             gather("ASM_trad", "ASM_param", key= Method, value= Score) %>% 
+             arrange(ID) 
+
+asm.long_trad <- asm.long %>% filter(Method== "ASM_trad")
+wilcox.test(Score ~ GRP, data= asm.long_trad, exact= FALSE, conf.int= TRUE, conf.level= 0.95) 
+
+asm.long_spec <- asm.long %>% filter(Method== "ASM_param")
+wilcox.test(Score ~ GRP, data= asm.long_spec, exact= FALSE, conf.int= TRUE, conf.level= 0.95)
+```
+
+### Examine exponent lateralization 
+```{r, warning= FALSE, fig.height= 4, fig.width= 7}
+diff <- asm.wide$right_exponent - asm.wide$left_exponent
+barplot(diff, col= "coral", xlab= "Observation", ylab= "Difference (right – left)")
+cor.test(asm.wide$right_exponent, asm.wide$left_exponent, method= "pearson")
+
+
+asm.wide %>% filter(GRP== "BI") %>% select(exp_lateralized) %>% describe(skew= FALSE)
+asm.wide %>% filter(GRP== "BN") %>% select(exp_lateralized) %>% describe(skew= FALSE)
+
+exp1 <- ggplot(asm.wide, aes(sample= exp_lateralized)) +
+         theme_classic() +
+         geom_qq() + geom_qq_line(color= '#56B4E9') + labs(x= "") + 
+         scale_y_continuous(name= "", limits= c(-0.40,0.50), expand= c(0, 0)) +
+         theme(axis.text= element_text(size= 10, color= "black")) 
+exp2 <- ggplot(asm.wide, aes(y= exp_lateralized)) +
+         theme_classic() +
+         geom_boxplot(size= 1, outlier.colour= "#D55E00", outlier.shape= 8, outlier.size= 4) + labs(x= "") + 
+         scale_y_continuous(name= "", limits= c(-0.40,0.50), expand= c(0, 0)) +
+         theme(axis.text.y= element_text(size= 10, color= "black"), axis.text.x= element_text(color= "white")) 
+exp3 <- ggplot(asm.wide, aes(x= GRP, y= exp_lateralized, fill= GRP)) +
+         geom_jitter(alpha= 0.7, width= 0.05, size= 2, aes(color= GRP)) +
+         theme_classic() +
+         stat_summary(fun.y= mean, shape= 23, size= 1.5, color= c("coral4","cyan4")) + 
+         scale_x_discrete(name= "", expand= c(1, 0)) +
+         scale_y_continuous(name= "Lateralized exponent (right-left)", limits= c(-0.40,0.50), expand= c(0, 0)) +
+         theme(axis.text.y= element_text(size= 10, color= "black"), 
+               axis.text.x= element_text(size= 13, color= "black"), 
+               axis.title= element_text(size= 12)) +
+         theme(legend.position= "none")
+layout2 <- rbind(c(1,2,3,3), c(1,2,3,3), c(1,2,3,3))
+grid.arrange(arrangeGrob(exp1, exp2, exp3, layout_matrix= layout2)) 
+
+
+t.test(exp_lateralized~ GRP, data= asm.wide, var.equal= TRUE)
+
+cor.test(asm.wide$exp_lateralized, asm.wide$ASM_trad, method= "pearson")
+```
+
+
+

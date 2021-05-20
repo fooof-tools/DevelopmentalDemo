@@ -1,0 +1,118 @@
+---
+title: "Spectral parameterization for studying neurodevelopment: How and why"
+subtitle: "Fitting individual power spectrum" 
+author: "Brendan Ostlund, Thomas Donoghue, Berenice Anaya, Kelley E. Gunther, Sarah L. Karalunas, Bradley Voytek, & Koraly E. Pérez-Edgar"
+output: html_document
+---
+This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [Open Science Framework](https://osf.io/efj6c/) and GitHub pages for this project.
+
+
+## **1.** Prepare data
+### Load example data 
+```{r}
+setwd("~/Desktop/specparam")
+
+data <- read.csv("indv.csv", header= TRUE)
+PSD  <- read.csv("indvPSD.csv", header= TRUE)
+freq <- read.csv("freqs.csv", header= TRUE)
+```
+
+### Load R libraries 
+```{r, warning= FALSE, message= FALSE}
+library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
+library(reticulate)  # Interface Python and R Studio
+library(magick)      # Load and adjust .PNG files
+library(gridExtra)   # Arrange multiple plots 
+```
+
+### Load python libraries
+```{python libraries}
+# Import python dependencies 
+import pandas as pd
+import numpy as np
+import sys
+import os
+import matplotlib
+import tqdm
+import pytest
+
+# Import FOOOF dependencies
+from fooof import FOOOF
+```
+
+
+## **2.** Fitting individual power spectrum
+### Load individual PSD
+```{python}
+# Load .CSV files with vector of frequencies ("freqs.csv") and participant x frequencies matrix ("eopPSDs.csv")
+freqs=   np.ravel(pd.read_csv("freqs.csv"))                                                             
+spectrum= np.ravel(pd.read_csv("indvPSD.csv"))  
+
+# Check shape of both objects. 
+# NOTE: the column number from "freqs" needs to match with the row number of "spectra"
+print(freqs.shape)                                                                                        
+print(spectrum.shape)  
+```
+
+### Fit PSD
+```{python}
+# Adjust settings for spectral parameterization
+fm= FOOOF(peak_width_limits= [1, 8], max_n_peaks= 8, min_peak_height= 0.05)  
+         
+# Fit individual PSD over 1-30 Hz range      
+fm.report(freqs, spectrum, [1, 30])
+
+# Save group fit information 
+fm.save_report('INDV_demo')
+fm.plot(save_fig= True, file_name= "INDV_demo")
+```
+
+### Extract periodic and aperiodic parameters   
+```{python}
+# Extract aperiodic and full periodic parameter information 
+fm_aps=   fm.get_params('aperiodic_params')
+fm_peaks= fm.get_params('peak_params')
+fm_spec=  fm.fooofed_spectrum_[1:30]
+
+# Extract group fit information 
+fm_errors= fm.get_params('error')
+fm_r2s=    fm.get_params('r_squared')
+
+# Extract specific parameters as needed
+fm_exp = fm.get_params('aperiodic_params', 'exponent')   
+fm_cfs = fm.get_params('peak_params', 'CF')  
+
+# Print information about parameters and fit
+print('Aperiodic parameters: \n', fm.aperiodic_params_, '\n')
+print('Peak parameters: \n', fm.peak_params_, '\n')
+print('Goodness of fit:')
+print(' Error - ', fm.error_)
+print(' R^2   - ', fm.r_squared_, '\n')
+print('Number of fit peaks: \n', fm.n_peaks_)
+```
+
+### Print group fit results 
+```{r}
+print(image_read("~/Desktop/specparam/INDV_demo.png"))
+```
+
+### Save to R dataframe 
+```{r}
+# Transfer aperiodic and full periodic parameter information to R dataframe 
+aps <- as.data.frame(py$fm_aps) %>% mutate(var= c("offset","exponent")) %>% spread(var,`py$fm_aps`)                                  
+per <- as.data.frame(py$fm_peaks) %>% rename(CF= 1, PW= 2, BW= 3)
+spc <- as.data.frame(py$fm_spec)
+
+# Transfer group fit information to R dataframe 
+r2s <- as.data.frame(py$fm_r2s) %>% rename(r2s= 1)                                                     
+err <- as.data.frame(py$fm_errors) %>% rename(error= 1)                                               
+
+# Create object that binds key variables from original data set and specparam parameters 
+indv_param    <- data %>% select(ID) %>% cbind(., per, aps, r2s, err) 
+indv_spectrum <- data %>% select(ID) %>% cbind(., spc) %>% rename(spectrum= `py$fm_spec`)
+
+# Save as a .csv file 
+write.csv(indv_param, file= "INDV_demo.csv", row.names= FALSE)                                                 
+write.csv(indv_spectrum, file= "INDV_demo_fullspectrum.csv", row.names= FALSE) 
+```
+

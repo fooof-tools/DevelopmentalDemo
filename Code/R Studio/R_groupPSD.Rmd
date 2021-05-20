@@ -1,0 +1,234 @@
+---
+title: "Spectral parameterization for studying neurodevelopment: How and why"
+subtitle: "Fitting multiple power spectra"
+author: "Brendan Ostlund, Thomas Donoghue, Berenice Anaya, Kelley E. Gunther, Sarah L. Karalunas, Bradley Voytek, & Koraly E. Pérez-Edgar"
+output: html_document
+---
+This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [Open Science Framework](https://osf.io/efj6c/) and GitHub pages for this project.
+
+
+## **1.** Prepare data
+### Load example data 
+```{r}
+setwd("~/Desktop/specparam")
+
+data <- read.csv("eop.csv", header= TRUE)
+PSDs <- read.csv("eopPSDs.csv", header= TRUE)
+freq <- read.csv("freqs.csv", header= TRUE)
+```
+
+### Load R libraries 
+```{r, message= FALSE}
+library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
+library(reticulate)  # Interface Python and R Studio
+library(magick)      # Load and adjust .PNG files
+library(gridExtra)   # Arrange multiple plots 
+```
+
+### Load python libraries
+```{python}
+import pandas as pd
+import numpy as np
+import sys
+import os
+import matplotlib
+import tqdm
+import pytest
+
+from fooof import FOOOFGroup
+from fooof.bands import Bands
+from fooof.analysis import get_band_peak_fg
+from fooof.plts.periodic import plot_peak_fits, plot_peak_params
+from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
+```
+
+
+## **2.** Fitting group power spectra
+### Load group PSDs
+```{python}
+# Load .csv files with vector of frequencies ("freqs.csv") and participant x frequencies matrix ("eopPSDs.csv")
+freqs=   np.ravel(pd.read_csv("freqs.csv"))                                                             
+spectra= np.array(pd.read_csv("eopPSDs.csv"))  
+
+# Check shape of both objects. 
+# NOTE: column number from "freqs" needs to match row number of "spectra"
+print(freqs.shape)                                                                                        
+print(spectra.shape)                                            
+```
+
+### Fit group PSDs
+```{python}
+# Adjust settings for spectral parameterization
+fg= FOOOFGroup(peak_width_limits= [1, 8], max_n_peaks= 8, min_peak_height= 0.05)  
+         
+# Fit group PSDs over 1-50 Hz range      
+fg.fit(freqs, spectra, [1, 50]) 
+fg.print_results()                                                                                     
+
+# Save group fit information 
+fg.save_report('EOP_demo')                                                                             
+fg.plot(save_fig= True, file_name= "EOP_demo")  
+```
+
+### Extract periodic and aperiodic parameters   
+```{python}
+# Extract aperiodic and periodic parameter information 
+fg_aps=   fg.get_params('aperiodic_params')                                                           
+fg_peaks= fg.get_params('peak_params')                                                                
+
+# Extract group fit information
+fg_errors= fg.get_params('error')                                                                      
+fg_r2s=    fg.get_params('r_squared')                                                                  
+
+# Define canonical frequency bands 
+bands= Bands({'delta':[1, 4], 'theta':[4, 8], 'alpha':[8, 13], 'beta':[13, 30], 'gamma':[30, 50]})    
+
+# Extract band-limited peaks information 
+deltas= get_band_peak_fg(fg, bands.delta)                                                             
+thetas= get_band_peak_fg(fg, bands.theta)                                                              
+alphas= get_band_peak_fg(fg, bands.alpha)                                                              
+betas=  get_band_peak_fg(fg, bands.beta)                                                                    
+gammas= get_band_peak_fg(fg, bands.gamma)                                                              
+```
+
+### Save to R dataframe 
+```{r}
+# Transfer aperiodic and full periodic parameter information to R dataframe 
+aps <- as.data.frame(py$fg_aps) %>% rename(offset= 1, exponent= 2)                                     
+per <- as.data.frame(py$fg_peaks)       
+
+# Transfer group fit information to R data frame 
+r2s <- as.data.frame(py$fg_r2s) %>% rename(r2s= 1)                                                     
+err <- as.data.frame(py$fg_errors) %>% rename(error= 1)                                               
+
+# Transfer band-limited peaks information to R dataframe 
+deltas <- as.data.frame(py$deltas) %>% 
+           rename(CF_delta= 1, PW_delta= 2, BW_delta= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+thetas <- as.data.frame(py$thetas) %>% 
+           rename(CF_theta= 1, PW_theta= 2, BW_theta= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+alphas <- as.data.frame(py$alphas) %>% 
+           rename(CF_alpha= 1, PW_alpha= 2, BW_alpha= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+betas  <- as.data.frame(py$betas) %>% 
+           rename(CF_beta= 1, PW_beta= 2, BW_beta= 3) %>%  
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))       
+gammas <- as.data.frame(py$gammas) %>% 
+           rename(CF_gamma= 1, PW_gamma= 2, BW_gamma= 3) %>% 
+           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))    
+
+# Create object that binds key variables from original data set and FOOOF parameters 
+grp_param <- data %>% 
+              select(ID:GRP) %>% 
+              cbind(., aps, r2s, err, deltas, thetas, alphas, betas, gammas) %>% 
+              mutate(constant= 1) 
+
+# Save as a .csv file 
+write.csv(grp_param, file= "EOP_demo.csv", row.names= FALSE)                                                 
+```
+
+### Print group fit results 
+```{r}
+print(image_read("~/Desktop/specparam/EOP_demo.png"))
+```
+
+### Plot periodic and aperiodic parameters
+```{r, warning= FALSE, message= FALSE, fig.height= 4, fig.width= 18}
+fig4d <- ggplot(grp_param, aes(x= constant, y= offset, fill= constant)) +
+          geom_jitter(alpha= 0.7, width= 0.01, size= 2, aes(color= constant)) +
+          theme_classic() +
+          labs(tag= "A)", title= "Offset") +
+          stat_summary(fun= mean, shape= 23, size= 1.10, fill= "#D55E00") + 
+          scale_x_discrete(name= "", expand= c(1, 0), labels= NULL) +
+          scale_y_continuous(name= "", limits= c(0.25,2.25), breaks= seq(0.25,2.25,0.5), expand= c(0, 0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          theme(legend.position= "none")
+
+fig4e <- ggplot(grp_param, aes(x= constant, y= exponent, fill= constant)) +
+          geom_jitter(alpha= 0.7, width= 0.01, size= 2, aes(color= constant)) +
+          theme_classic() +
+          labs(tag= "B)", title= "Exponent") +
+          stat_summary(fun= mean, shape= 23, size= 1.10, fill= "#D55E00") + 
+          scale_x_discrete(name= "", expand= c(1, 0), labels= NULL) +
+          scale_y_continuous(name= "", limits= c(0.25,2.25), breaks= seq(0.25,2.25,0.5), expand= c(0, 0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          theme(legend.position= "none")
+
+fig4f <- ggplot(grp_param, aes(x= CF_delta, y= PW_delta, size= BW_delta, fill= BW_delta)) +
+          geom_point(alpha= 0.7, color= "#0072B2") +
+          theme_classic() +
+          labs(tag= "C)", title= "Delta (1-4Hz)") +
+          scale_x_continuous(name= "Center Frequency", 
+                             limits= c(0.75,4.25), breaks= seq(1,4, by= 1), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", 
+                             limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          theme(legend.position= "none")
+
+fig4g <- ggplot(grp_param, aes(x= CF_theta, y= PW_theta, size= BW_theta, fill= BW_theta)) +
+          geom_point(alpha= 0.7, color= "#0072B2") +
+          theme_classic() +
+          labs(tag= "D)", title= "Theta (4-8Hz)") +
+          scale_x_continuous(name= "Center Frequency", 
+                             limits= c(3.75,8.25), breaks= seq(4,8, by= 1), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", 
+                             limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          theme(legend.position= "none")
+
+fig4h <- ggplot(grp_param, aes(x= CF_alpha, y= PW_alpha, size= BW_alpha, fill= BW_alpha)) +
+          geom_point(alpha= 0.7, color= "#0072B2") +
+          theme_classic() +
+          labs(tag= "E)",  title= "Alpha (8-13Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(7.75,13.25), breaks= seq(8,13, by= 1), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", 
+                             limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          theme(legend.position= "none")
+
+fig4i <- ggplot(grp_param, aes(x= CF_beta, y= PW_beta, size= BW_beta, fill= BW_beta)) +
+          geom_point(alpha= 0.7, color= "#0072B2") +
+          theme_classic() +
+          labs(tag= "F)", title= "Beta (13-30Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(12.50,30.50), breaks= seq(13,30, by= 3), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", 
+                             limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          theme(legend.position= "none")
+
+fig4j <- ggplot(grp_param, aes(x= CF_gamma, y= PW_gamma, size= BW_gamma, fill= BW_gamma)) +
+          geom_point(alpha= 0.7, color= "#0072B2") +
+          theme_classic() +
+          labs(tag= "G)", title= "Gamma (30-50Hz)") +
+          scale_x_continuous(name= "Peak Frequency", 
+                             limits= c(29.50,50.50), breaks= seq(30,50, by= 5), expand= c(0,0)) +
+          scale_y_continuous(name= "Power", 
+                             limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
+          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14), 
+                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
+          scale_size(range = c(4, 10)) +
+          theme(legend.position= "none")
+
+grid.arrange(fig4d, fig4e, fig4f, fig4g, fig4h, fig4i, fig4j, nrow= 1)
+```
+
+
+## Additional plots -- **COMING SOON!**
+```{r}
+
+```
+
+
