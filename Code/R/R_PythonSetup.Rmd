@@ -54,11 +54,11 @@ use_virtualenv("r-reticulate")
 ## **3.** Load python packages
 ### Install packages
 ```{r}
-py_install("pandas")
-py_install("matplotlib")
-py_install("fooof")
-py_install("tqdm")
-py_install("pytest")
+py_install("pandas", envname= "r-reticulate")
+py_install("matplotlib", envname= "r-reticulate")
+py_install("fooof", envname= "r-reticulate")
+py_install("tqdm", envname= "r-reticulate")
+py_install("pytest", envname= "r-reticulate")
 ```
 
 ### Import packages
