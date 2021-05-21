@@ -6,10 +6,9 @@ output: html_document
 ---
 This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [Open Science Framework](https://osf.io/efj6c/) and GitHub pages for this project.
 
-
 This tutorial shows how to access Python in R Studio via the *reticulate* package (Ushey et al., 2020). While there are multiple ways in which a user may call Python from R (e.g., **repl_python()** function), our discussion focuses solely on how to access Python in an R Markdown file. Please see the [*reticulate* website](https://rstudio.github.io/reticulate) for details on alternative approaches. We also recommend reviewing the [reticulate cheat sheet](https://ugoproto.github.io/ugo_r_doc/pdf/reticulate.pdf) provided by R Studio.
 
-
+## **1.** Install packages
 ### Load reticulate 
 ```{r}
 #install.packages("reticulate")
@@ -17,44 +16,50 @@ library(reticulate)
 ```
 
 ### Install miniconda
-*Miniconda* is a small version of the conda environment.
+*Miniconda* is a small version of conda that includes python and common dependencies (https://docs.conda.io/projects/conda/en/latest/user-guide/install/download.html#anaconda-or-miniconda).
 ```{r}
 #install_miniconda()
 ```
 
-### Identify available python versions
+### Identify python version on your PATH
 "It is not uncommon for several version of Python (and several conda or virtualenv environments within a given version) to be available on a given system. The reticulate package can bind to any of these versions, and in all cases will attempt to locate a version which includes the first Python package imported via the import() function."
 ```{r}
-# Identify python version on your PATH
 Sys.which("python")
+```
 
-# Return all detected versions of Python
+## **2.** Identify and set python 
+### Return all detected python versions
+```{r}
 py_discover_config()
+```
 
-# List all available conda environments
+### List all available conda environments
+```{r}
 conda_list(conda= "auto")
 ```
 
 ### Set python version 
-This code chunk opens a .Rprofile file where the path to the preferred python version can be set. To do so, change the *PATH* listed in the **Sys.setenv(RETICULATE_PYTHON = *PATH*)** command to match the location where miniconda is installed. This information can be found using the **conda_list(conda= "auto")** command from the code chunk above.
+This code chunk opens a .Rprofile file where the path to the preferred python version can be set. To do so, change the *PATH* listed in the **Sys.setenv(RETICULATE_PYTHON = *PATH*)** command to match the location where miniconda is installed. You will need to copy and paste the python path listed next to the "r-reticulate" option printed from the **conda_list(conda= "auto")** command from the code chunk above. R will need to be restarted so that the changes take effect. *You will only need to set this path once*; this information will be saved for subsequent use. 
 ```{r}
-# usethis::edit_r_profile()
+#usethis::edit_r_profile()
 ```
 
-###
+
+## **3.** Import python libraries
+### 
 ```{r}
 
 ```
 
 ###
 ```{python}
-import pandas as pd
-import numpy as np
-import sys
-import os
-import matplotlib
-import tqdm
-import pytest
+# import pandas as pd
+# import numpy as np
+# import sys
+# import os
+# import matplotlib
+# import tqdm
+# import pytest
 ```
 
 
