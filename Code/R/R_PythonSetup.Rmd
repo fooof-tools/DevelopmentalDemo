@@ -42,7 +42,7 @@ conda_list(conda= "auto")
 This code chunk opens a .Rprofile file where the path to the preferred python version can be set. To do so, change the *PATH* listed in the **Sys.setenv(RETICULATE_PYTHON = *PATH*)** command to match the location where miniconda is installed. You will need to copy and paste the python path listed next to the "r-reticulate" option printed from the **conda_list(conda= "auto")** command from the code chunk above. R will need to be restarted so that the changes take effect. *You will only need to set this path once*; this information will be saved for subsequent use. 
 ```{r}
 #install.packages("usethis")
-#usethis::edit_r_profile()
+usethis::edit_r_profile()
 ```
 
 ### Set virtual environment
