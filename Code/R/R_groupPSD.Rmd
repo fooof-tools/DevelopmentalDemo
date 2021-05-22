@@ -10,14 +10,17 @@ This R Markdown file corresponds to data analysis for a **Developmental Cognitiv
 ## **1.** Prepare data
 ### Load example data 
 ```{r}
-setwd("~/Desktop/specparam")
+# All files are saved in a folder on the Desktop
+setwd("~/Desktop/specparam")                # Mac
+#setwd("C:/Users/bdo12/Desktop/specparam")  # Windows
 
 data <- read.csv("eop.csv", header= TRUE)
 PSDs <- read.csv("eopPSDs.csv", header= TRUE)
 freq <- read.csv("freqs.csv", header= TRUE)
 ```
 
-### Load R libraries 
+### Load R packages 
+These packages are required for this tutorial. Install packages using the *install.packages()* function if needed.
 ```{r, message= FALSE}
 library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
 library(reticulate)  # Interface Python and R Studio
@@ -25,7 +28,7 @@ library(magick)      # Load and adjust .PNG files
 library(gridExtra)   # Arrange multiple plots 
 ```
 
-### Load python libraries
+### Load python packages
 ```{python}
 import pandas as pd
 import numpy as np

@@ -22,7 +22,7 @@ library(reticulate)
 ```
 
 ### Identify python version on your PATH
-"It is not uncommon for several version of Python (and several conda or virtualenv environments within a given version) to be available on a given system. The reticulate package can bind to any of these versions, and in all cases will attempt to locate a version which includes the first Python package imported via the import() function."
+Several Python (and conda) versions may already exist on your computer. It is therefore essential that we identify available versions and set the preferred versions for all work going forward.
 ```{r}
 Sys.which("python")
 ```
