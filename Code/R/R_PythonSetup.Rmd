@@ -55,23 +55,12 @@ use_virtualenv("r-reticulate")
 ### Install packages
 ```{r}
 py_install("pandas", envname= "r-reticulate")
-py_install("matplotlib", envname= "r-reticulate")
+py_install("numpy", envname= "r-reticulate")
 py_install("fooof", envname= "r-reticulate")
+py_install("matplotlib", envname= "r-reticulate")
 py_install("tqdm", envname= "r-reticulate")
 py_install("pytest", envname= "r-reticulate")
 ```
-
-### Import packages
-```{python}
-import pandas as pd
-import numpy as np
-import sys
-import os
-import matplotlib
-import tqdm
-import pytest
-```
-
 
 
 
