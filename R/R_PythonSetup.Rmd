@@ -9,7 +9,7 @@ This R Markdown file corresponds to data analysis for a **Developmental Cognitiv
 This tutorial shows how to access Python in R Studio via the *reticulate* package (Ushey et al., 2020). While there are multiple ways in which a user may call Python from R (e.g., **repl_python()** function), our discussion focuses solely on how to access Python in an R Markdown file. Please see the [*reticulate* website](https://rstudio.github.io/reticulate) for details on alternative approaches. We also recommend reviewing the [reticulate cheat sheet](https://ugoproto.github.io/ugo_r_doc/pdf/reticulate.pdf) provided by R Studio.
 
 ## **1.** Install packages
-### Load reticulate 
+### Load reticulate
 ```{r}
 #install.packages("reticulate")
 library(reticulate)
@@ -27,7 +27,7 @@ Several Python (and conda) versions may already exist on your computer. It is th
 Sys.which("python")
 ```
 
-## **2.** Identify and set python 
+## **2.** Identify and set python
 ### Return all detected python versions
 ```{r}
 py_discover_config()
@@ -38,8 +38,8 @@ py_discover_config()
 conda_list(conda= "auto")
 ```
 
-### Set python version 
-This code chunk opens a .Rprofile file where the path to the preferred python version can be set. To do so, change the *PATH* listed in the **Sys.setenv(RETICULATE_PYTHON = *PATH*)** command to match the location where miniconda is installed. You will need to copy and paste the python path listed next to the "r-reticulate" option printed from the **conda_list(conda= "auto")** command from the code chunk above. R will need to be restarted so that the changes take effect. *You will only need to set this path once*; this information will be saved for subsequent use. 
+### Set python version
+This code chunk opens a .Rprofile file where the path to the preferred python version can be set. To do so, change the *PATH* listed in the **Sys.setenv(RETICULATE_PYTHON = *PATH*)** command to match the location where miniconda is installed. You will need to copy and paste the python path listed next to the "r-reticulate" option printed from the **conda_list(conda= "auto")** command from the code chunk above. R will need to be restarted so that the changes take effect. *You will only need to set this path once*; this information will be saved for subsequent use.
 ```{r}
 #install.packages("usethis")
 usethis::edit_r_profile()
@@ -58,10 +58,4 @@ py_install("pandas", envname= "r-reticulate")
 py_install("numpy", envname= "r-reticulate")
 py_install("fooof", envname= "r-reticulate")
 py_install("matplotlib", envname= "r-reticulate")
-py_install("tqdm", envname= "r-reticulate")
-py_install("pytest", envname= "r-reticulate")
 ```
-
-
-
-
