@@ -30,10 +30,15 @@ The examples in this repository use and require Python >= 3.6.
 All examples require the [specparam](https://github.com/fooof-tools/fooof) module.
 
 In addition, the following Python modules are required:
+
 - [pandas](https://github.com/pandas-dev/pandas)
 
 The R example requires [R](https://www.r-project.org/), including the following modules:
-- ...
+
+- [reticulate](https://rstudio.github.io/reticulate/)
+- [tidyverse](https://www.tidyverse.org/)
+- [gridExtra](https://github.com/baptiste/gridextra/wiki)
+- [magick](https://docs.ropensci.org/magick/articles/intro.html)
 
 ## Reference
 
@@ -54,7 +59,21 @@ Further materials on spectral parameterization are also available on the
 
 ## Data
 
-The data in this repository is ...
+The data in this repository correspond to the following tutorials:
+
+- Fitting individual power spectrum
+  + `indv.csv`
+  + `indvPSD.csv`
+- Fitting group power spectra
+  + `eop.csv`
+  + `eopPSDs.csv`
+- Illustrative example (see Ostlund et al., under review)
+  + `ecl.csv`
+  + `eclPSDs.csv`
+  + `asm.csv`
+  + `asmPSDs.csv`
+- Vector of frequencies
+  + `freq.csv`
 
 ## Contact
 
