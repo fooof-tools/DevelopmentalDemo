@@ -47,7 +47,7 @@ This tutorial is accompanied by a companion paper which includes a detailed desc
 This tutorial is described in the following article:
 
     Ostlund B, Donoghue T, Anaya B, Gunther KE, Karalunas SL, Voytek B, Pérez-Edgar KE. Spectral
-    parameterization for studying neurodevelopment: How and why [forthcoming]
+    parameterization for studying neurodevelopment: How and why (under review)
 
 Direct Link: LINK FORTHCOMING
 
