@@ -224,7 +224,3 @@ grid.arrange(fig4d, fig4e, fig4f, fig4g, fig4h, fig4i, fig4j, nrow= 1)
 ```
 
 
-## Additional plots -- **COMING SOON!**
-```{r}
-
-```
