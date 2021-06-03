@@ -58,22 +58,23 @@ Further materials on spectral parameterization are also available on the
 [documentation site](https://fooof-tools.github.io/).
 
 ## Data
+We include electroencephalogram (EEG) data from 60 children (*M<sub>age</sub>* = 10.80, *SD* = 1.00) who were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University.
 
 The data in this repository correspond to the following tutorials:
 
 - Fitting individual power spectrum
-  + `indv.csv`
-  + `indvPSD.csv`
+  + `indv.csv` - individual power spectrum with ID and grouping variable ("GRP")
+  + `indvPSD.csv` - individual power spectrum 
 - Fitting group power spectra
-  + `eop.csv`
-  + `eopPSDs.csv`
+  + `eop.csv` - power spectra with IDs and GRP for eyes-open ("eop") condition
+  + `eopPSDs.csv` - power spectra for eyes-open ("eop") condition
 - Illustrative example (see Ostlund et al., under review)
-  + `ecl.csv`
-  + `eclPSDs.csv`
-  + `asm.csv`
-  + `asmPSDs.csv`
+  + `ecl.csv` - power spectra with IDs and GRP for eyes-closed ("ecl") condition
+  + `eclPSDs.csv` - power spectra for eyes-closed ("ecl") condition
+  + `asm.csv` - power spectra for frontal asymmetry ("asm") analysis with IDs, GRP, and scalp hemisphere ("hem") variables
+  + `asmPSDs.csv` - power spectra for frontal asymmetry ("asm") analysis
 - Vector of frequencies
-  + `freq.csv`
+  + `freq.csv` - vector of frequencies from 1-50Hz
 
 ## Contact
 
