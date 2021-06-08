@@ -10,7 +10,7 @@ This R Markdown file corresponds to data analysis for a **Developmental Cognitiv
 ## **1.** Prepare data
 ### Load example data
 ```{r}
-setwd("~/Desktop/specparam")
+setwd(".././Data")
 
 data <- read.csv("indv.csv", header= TRUE)
 PSD  <- read.csv("indvPSD.csv", header= TRUE)

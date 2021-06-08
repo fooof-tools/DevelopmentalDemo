@@ -14,7 +14,7 @@ Analyses for the illustrative example are based on the eyes-closed condition of 
 ## **1.** Prepare data
 ### Load data
 ```{r}
-setwd("~/Desktop/specparam")
+setwd(".././Data")
 
 data <- read.csv("ecl.csv", header= TRUE)
 PSDs <- read.csv("eclPSDs.csv", header= TRUE)
