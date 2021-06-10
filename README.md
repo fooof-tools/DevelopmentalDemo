@@ -46,10 +46,10 @@ This tutorial is accompanied by a companion paper which includes a detailed desc
 
 This tutorial is described in the following article:
 
-    Ostlund B, Donoghue T, Anaya B, Gunther KE, Karalunas SL, Voytek B, Pérez-Edgar KE. Spectral
-    parameterization for studying neurodevelopment: How and why (under review)
+    Ostlund B, Donoghue T, Anaya B, Gunther K.E., Karalunas S.L., Voytek B, Pérez-Edgar K.E. (2021). Spectral
+    parameterization for studying neurodevelopment: How and why. PsyArXiv. https://doi.org/10.31234/osf.io/btqyk
 
-Direct Link: LINK FORTHCOMING
+Direct Link: https://doi.org/10.31234/osf.io/btqyk
 
 For more information on the the spectral parameterization model, see also
 [Donoghue et al., 2020](https://www.nature.com/articles/s41593-020-00744-x).
