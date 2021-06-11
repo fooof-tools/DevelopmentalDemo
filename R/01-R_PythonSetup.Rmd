@@ -53,9 +53,10 @@ use_virtualenv("r-reticulate")
 
 ## **3.** Load python packages
 ### Install packages
+Uncomment this code when you are ready to install python packages.
 ```{r}
-py_install("pandas", envname= "r-reticulate")
-py_install("numpy", envname= "r-reticulate")
-py_install("fooof", envname= "r-reticulate")
-py_install("matplotlib", envname= "r-reticulate")
+#py_install("pandas", envname= "r-reticulate")
+#py_install("numpy", envname= "r-reticulate")
+#py_install("fooof", envname= "r-reticulate")
+#py_install("matplotlib", envname= "r-reticulate")
 ```
