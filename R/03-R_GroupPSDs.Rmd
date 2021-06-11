@@ -126,7 +126,7 @@ write.csv(grp_param, file= "EOP_demo.csv", row.names= FALSE)
 
 ### Print group fit results
 ```{r}
-print(image_read("~/Desktop/specparam/EOP_demo.png"))
+print(image_read(".././Data/EOP_demo.png"))
 ```
 
 ### Plot periodic and aperiodic parameters

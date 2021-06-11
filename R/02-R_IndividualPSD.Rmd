@@ -88,7 +88,7 @@ print('Number of fit peaks: \n', fm.n_peaks_)
 
 ### Print group fit results
 ```{r}
-print(image_read("~/Desktop/specparam/INDV_demo.png"))
+print(image_read(".././Data/INDV_demo.png"))
 ```
 
 ### Save to R dataframe

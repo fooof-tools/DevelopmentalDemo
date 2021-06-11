@@ -139,7 +139,7 @@ dat_param %>% filter(GRP== "BN") %>% describe(skew= FALSE)
 
 ### Print group fit results
 ```{r, message= FALSE}
-print(image_read("~/Desktop/specparam/ECL_example.png"))
+print(image_read(".././Data/ECL_example.png"))
 ```
 
 ### Plot periodic and aperiodic parameters
