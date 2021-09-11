@@ -4,7 +4,7 @@ subtitle: "Setting up Python in R Studio using the *reticulate* package"
 author: "Brendan Ostlund, Thomas Donoghue, Berenice Anaya, Kelley E. Gunther, Sarah L. Karalunas, Bradley Voytek, & Koraly E. Pérez-Edgar"
 output: html_document
 ---
-This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [Open Science Framework](https://osf.io/efj6c/) and GitHub pages for this project.
+This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [GitHub](https://github.com/fooof-tools/DevelopmentalDemo) page for this project. Please check the Github page periodically for updates.
 
 This tutorial shows how to access Python in R Studio via the *reticulate* package (Ushey et al., 2020). While there are multiple ways in which a user may call Python from R (e.g., **repl_python()** function), our discussion focuses solely on how to access Python in an R Markdown file. Please see the [*reticulate* website](https://rstudio.github.io/reticulate) for details on alternative approaches. We also recommend reviewing the [reticulate cheat sheet](https://ugoproto.github.io/ugo_r_doc/pdf/reticulate.pdf) provided by R Studio.
 
@@ -59,4 +59,5 @@ Uncomment this code when you are ready to install python packages.
 #py_install("numpy", envname= "r-reticulate")
 #py_install("fooof", envname= "r-reticulate")
 #py_install("matplotlib", envname= "r-reticulate")
+#py_install("pathlib", envname= "r-reticulate")
 ```
