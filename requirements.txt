@@ -1,4 +1,4 @@
 fooof
 pandas
-matlibplot
+matplotlib
 pathlib
