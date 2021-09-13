@@ -33,6 +33,10 @@ import matplotlib.pyplot as plt
 # Import the parameterization model object
 from fooof import FOOOF
 
+# Import functions to visualize flattened power spectrum
+from fooof.plts.spectra import plot_spectrum
+from fooof.sim.gen import gen_aperiodic
+
 # Import functions to examine frequency-by-frequency error of model fits
 from fooof.analysis.error import compute_pointwise_error_fm
 ```
@@ -119,6 +123,22 @@ template = ("With an error level of {error:1.2f}, specparam fit an exponent of {
 print(template.format(error = err, exponent = exp, cfs = ' & '.join(map(str, [round(CF, 2) for CF in cfs]))))
 ```
 
+### Plot flattened power spectrum
+It may be useful to plot a flattened power spectrum, with the aperiodic fit removed. 
+```{python}
+# Set whether to plot in log-log space
+plt_log = False
+
+# Do an initial aperiodic fit - a robust fit, that excludes outliers
+init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+
+# Recompute the flattened spectrum using the initial aperiodic fit
+init_flat_spec = fm.power_spectrum - init_ap_fit
+
+# Plot the flattened the power spectrum
+plot_spectrum(fm.freqs, init_flat_spec, plt_log, label = 'Flattened spectrum', color = 'black')
+plt.show()
+```
 
 ## Move to R 
 Transferring specparam model objects into R allows a researcher to work within an environment that they are comfortable navigating, while reducing the number of secondary programs needed to process data. Here, we provide code to call python objects into R using the `py$` command in a R code chunk. We also provide example code to visualize some of the plots included in the specparam module in ggplot, to allow the user additional control over plot dimensions. 

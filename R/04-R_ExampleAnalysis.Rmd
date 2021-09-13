@@ -18,7 +18,6 @@ library(psych)       # Toolbox for data analysis
 ```
 
 ### Load Python libraries
-Please see instructions in the Supplementary Information from the associated manuscript or README document in the R folder from the GitHub repository.
 ```{python, message= FALSE}
 # Import some useful standard library modules
 import os
@@ -37,6 +36,9 @@ from fooof.bands import Bands
 from fooof.analysis import get_band_peak_fg 
 from fooof.plts.periodic import plot_peak_fits, plot_peak_params
 from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
+
+# Import functions to examine frequency-by-frequency error of model fits
+from fooof.analysis.error import compute_pointwise_error_fg
 ```
 
 
@@ -162,9 +164,6 @@ dat <- full_join(IDs, per, by= "index") %>%
          full_join(r2s, by= "index") %>% 
          full_join(err, by= "index") %>% 
          select(-index) %>% arrange(ID)
-
-# View full ECL data frame
-View(dat)
 ```
 
 ### Check model fits
@@ -220,6 +219,26 @@ There was one instance identified as possibly being overfit (MAE < 0.02), ID# 20
 for ind, fm in enumerate(overfit_check):
   fm.save_report('ECL_OverFit_ToCheck_#' + str(ind), file_path= '../Output')
   )
+```
+
+### Frequency-by-frequency error
+```{python, message=FALSE, fig.height= 6, fig.width= 9}
+# Plot frequency-by-frequency error 
+compute_pointwise_error_fg(fg, plot_errors = True)
+plt.show()
+```
+
+```{python, message=FALSE}
+# Return the errors - this returns a 2D matrix of errors for all fits
+errs_fg = compute_pointwise_error_fg(fg, plot_errors = False, return_errors = True)
+
+# Check which frequency has the highest error
+f_max_err = fg.freqs[np.argmax(np.mean(errs_fg, 0))]
+print('Frequency with highest mean error: \t\t\t', f_max_err)
+
+# Check which frequency has the largest standard deviation of error
+f_max_std = fg.freqs[np.argmax(np.std(errs_fg, 0))]
+print('Frequency with highest standard deviation of error: \t', f_max_std)
 ```
 
 
@@ -417,6 +436,38 @@ t.test(BW_beta~ GRP, data= dat, var.equal= TRUE)
 # Goodness of fit parameters
 t.test(r2s~ GRP, data= dat, var.equal= TRUE)
 t.test(err~ GRP, data= dat, var.equal= TRUE)
+```
+
+### Plot raw power spectra
+```{r}
+# Read in ID variable for each group
+BI_IDs <- read.csv("../Data/ecl_BI.csv", header= TRUE) %>% select(ID) %>% mutate(GRP= "BI")  
+BN_IDs <- read.csv("../Data/ecl_BN.csv", header= TRUE) %>% select(ID) %>% mutate(GRP= "BN") 
+
+# Merge IDs into data frame
+dat_IDs <- full_join(BI_IDs,BN_IDs)
+
+# Transform data from wide to long format
+dat_long <- read.csv("../Data/ecl.csv", header= TRUE) %>% 
+              left_join(dat_IDs,., by= "ID") %>% 
+              select(ID,GRP,X3:X40) %>%
+              gather(Hz, power, X3:X40) %>% arrange(ID) %>% 
+              mutate(Hz= as.numeric(gsub('\\X', '', Hz))) 
+```
+
+```{r, fig.height= 5, fig.width= 5}
+colors <- c('#E69F00', '#0072B2')
+
+# Plot raw and mean power across frequencies
+ggplot(dat_long, aes(x= Hz, y= power, group= ID, color= GRP)) +
+  geom_line(alpha= 0.35, aes(color= GRP)) +
+  theme_classic() +
+  scale_color_manual(values= colors) +
+  stat_summary(aes(group= GRP), geom= "line", fun= mean, size= 1.5)  +
+  scale_x_continuous(name= "Frequency", limits= c(3,40), breaks= seq(0,40, by= 5), expand= c(0,0)) +
+  scale_y_log10(name= "Log(Power)") +
+  theme(axis.text.x= element_text(size= 11, color= "black"), axis.text.y= element_blank(), axis.title= element_text(size= 14)) +
+  theme(legend.position= "none")
 ```
 
 ### Plot periodic and aperiodic parameters 

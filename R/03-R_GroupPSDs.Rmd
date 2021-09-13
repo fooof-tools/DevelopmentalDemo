@@ -413,6 +413,26 @@ fig_e <- ggplot(dat, aes(x= CF_beta, y= PW_beta, size= BW_beta, fill= BW_beta)) 
 grid.arrange(fig_a, fig_b, fig_c, fig_d, fig_e, nrow= 1)
 ```
 
+### Plot raw power spectra
+Here, we provide additional code to plot the raw power spectra. In this case, we can transform data from wide to long format, and then plot individual (gray) and group averaged (blue) power across frequencies. 
+```{r}
+# Transform data from wide to long format
+dat_long <- read.csv("../Data/eop.csv", header= TRUE) %>% select(ID, X3:X40) %>%
+              gather(Hz, power, X3:X40) %>% arrange(ID) %>% 
+              mutate(Hz= as.numeric(gsub('\\X', '', Hz))) 
+```
+
+```{r, fig.height= 5, fig.width= 5}
+# Plot raw and mean power across frequencies
+ggplot(dat_long, aes(x= Hz, y= power, group= ID)) +
+  geom_line(color= "gray75") + 
+  theme_classic() +
+  stat_summary(aes(group= 1), geom = "line", fun= mean, size= 1.5, color= "#0072B2")  + 
+  scale_x_continuous(name= "Frequency", limits= c(3,40), breaks= seq(0,40, by= 5), expand= c(0,0)) +
+  scale_y_log10(name= "Log(Power)") +
+  theme(axis.text.x= element_text(size= 11, color= "black"), axis.text.y= element_blank(), axis.title= element_text(size= 14))
+```
+
 ```{r}
 # Print group fit results, if PNG file saved out
 #print(image_read("../Output/EOP_demo.png"))
