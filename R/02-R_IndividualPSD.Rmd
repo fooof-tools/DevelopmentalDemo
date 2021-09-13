@@ -182,6 +182,6 @@ errs_fm
 ```{python, message=FALSE}
 # Note that the average of this error is the same as the global error stored
 print('Average freq-by-freq error:\t {:1.3f}'.format(np.mean(errs_fm)))
-print('FOOOF model fit error: \t\t {:1.3f}'.format(fm.error_))
+print('specparam model fit error: \t\t {:1.3f}'.format(fm.error_))
 ```
 

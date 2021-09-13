@@ -145,12 +145,6 @@ plot_aperiodic_fits(aps, fg.freq_range, ax = axes[1])
 plt.show()
 ```
 
-```{python, message=FALSE}
-# Plot averaged fit power spectra
-
-```
-
-
 ## Tuning the specparam algorithm 
 There are no strict guidelines about optimal parameters that will be appropriate across data sets and recording modalities. We suggest applying a data-driven approach to tune model fitting for optimal performance, while taking into account your expectations about periodic and aperiodic activity given the data, the question of interest, and prior findings. 
 
@@ -419,6 +413,31 @@ grid.arrange(fig_a, fig_b, fig_c, fig_d, fig_e, nrow= 1)
 ```{r}
 # Print group fit results, if PNG file saved out
 #print(image_read("../Output/EOP_demo.png"))
+```
+
+### Frequency-by-frequency error
+It can be useful to plot frequency-by-frequency error of the model fit, to identify where in frequency space the spectrum is (or is not) being fit well. When fitting individual spectrum, this can be accomplished using the `compute_pointwise_error_fg` function. When plotting the error, the plot line is the mean error per frequency, across fits, and the shading indicates the standard deviation of the error, also per frequency.
+
+In this case, we can see that error fluctuates around 0.05, which is the same as the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, around 6-9 Hz, and around 14 Hz. Further considerations may be necessary for this model fit.
+```{python, message=FALSE, fig.height= 6, fig.width= 9}
+# Plot frequency-by-frequency error 
+compute_pointwise_error_fg(fg, plot_errors = True)
+plt.show()
+```
+
+```{python}
+# Return the errors - this returns a 2D matrix of errors for all fits
+errs_fg = compute_pointwise_error_fg(fg, plot_errors = False, return_errors = True)
+```
+
+```{python}
+# We can check which frequency has highest error, or standard deviation of error
+f_max_err = fg.freqs[np.argmax(np.mean(errs_fg, 0))]
+f_max_std = fg.freqs[np.argmax(np.std(errs_fg, 0))]
+
+# Print out frequency of maximal error
+print('Frequency with highest mean error: \t\t\t', f_max_err)
+print('Frequency with highest standard deviation of error: \t', f_max_std)
 ```
 
 
