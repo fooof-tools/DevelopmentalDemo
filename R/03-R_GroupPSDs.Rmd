@@ -434,12 +434,14 @@ errs_fg = compute_pointwise_error_fg(fg, plot_errors = False, return_errors = Tr
 ```
 
 ```{python, message=FALSE}
-# We can check which frequency has highest error, or standard deviation of error
+# Check which frequency has the highest error
 f_max_err = fg.freqs[np.argmax(np.mean(errs_fg, 0))]
-f_max_std = fg.freqs[np.argmax(np.std(errs_fg, 0))]
-
-# Print out frequency of maximal error
 print('Frequency with highest mean error: \t\t\t', f_max_err)
+```
+
+```{python, message=FALSE}
+# Check which frequency has the largest standard deviation of error
+f_max_std = fg.freqs[np.argmax(np.std(errs_fg, 0))]
 print('Frequency with highest standard deviation of error: \t', f_max_std)
 ```
 
