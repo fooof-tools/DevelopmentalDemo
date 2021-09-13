@@ -32,6 +32,9 @@ import matplotlib.pyplot as plt
 
 # Import the parameterization model object
 from fooof import FOOOF
+
+# Import functions to examine frequency-by-frequency error of model fits
+from fooof.analysis.error import compute_pointwise_error_fm
 ```
 
 ### Check specparam version
@@ -111,11 +114,6 @@ cfs = fm.get_params('peak_params', 'CF')
 ```
 
 ```{python, message=FALSE}
-# Extract parameterized power spectrum 
-spec = fm.fooofed_spectrum_[3:40]
-```
-
-```{python, message=FALSE}
 # Print out a custom parameter report
 template = ("With an error level of {error:1.2f}, specparam fit an exponent of {exponent:1.2f} and peaks of {cfs:s} Hz.")
 print(template.format(error = err, exponent = exp, cfs = ' & '.join(map(str, [round(CF, 2) for CF in cfs]))))
@@ -165,4 +163,25 @@ dat <- full_join(IDs, per, by= "index") %>%
 write.csv(dat, "../Output/INDV_demo.csv", row.names= FALSE)
 ```
 
+### Frequency-by-frequency error
+It can be useful to plot frequency-by-frequency error of the model fit, to identify where in frequency space the spectrum is (or is not) being fit well. When fitting individual spectrum, this can be accomplished using the `compute_pointwise_error_fm` function.
+
+In this case, we can see that error fluctuates around 0.05, which is the same as the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, around 6-9 Hz, and around 14 Hz. Further considerations may be necessary for this model fit.
+```{python, message=FALSE, fig.height= 6, fig.width= 9}
+# Plot frequency-by-frequency error 
+compute_pointwise_error_fm(fm, plot_errors = True)
+plt.show()
+```
+
+```{python, message=FALSE}
+# Return the frequency-by-frequency errors
+errs_fm = compute_pointwise_error_fm(fm, plot_errors= False, return_errors = True)
+errs_fm
+```
+
+```{python, message=FALSE}
+# Note that the average of this error is the same as the global error stored
+print('Average freq-by-freq error:\t {:1.3f}'.format(np.mean(errs_fm)))
+print('FOOOF model fit error: \t\t {:1.3f}'.format(fm.error_))
+```
 
