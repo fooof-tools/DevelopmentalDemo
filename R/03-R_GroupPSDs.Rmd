@@ -39,6 +39,9 @@ from fooof.bands import Bands
 from fooof.analysis import get_band_peak_fg
 from fooof.plts.periodic import plot_peak_fits, plot_peak_params
 from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
+
+# Import functions to examine frequency-by-frequency error of model fits
+from fooof.analysis.error import compute_pointwise_error_fg
 ```
 
 ### Check specparam version
@@ -418,7 +421,7 @@ grid.arrange(fig_a, fig_b, fig_c, fig_d, fig_e, nrow= 1)
 ### Frequency-by-frequency error
 It can be useful to plot frequency-by-frequency error of the model fit, to identify where in frequency space the spectrum is (or is not) being fit well. When fitting individual spectrum, this can be accomplished using the `compute_pointwise_error_fg` function. When plotting the error, the plot line is the mean error per frequency, across fits, and the shading indicates the standard deviation of the error, also per frequency.
 
-In this case, we can see that error fluctuates around 0.05, which is the same as the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, around 6-9 Hz, and around 14 Hz. Further considerations may be necessary for this model fit.
+In this case, we can see that error fluctuates around 0.03, which is the same as the mean absolute error for this group fit. There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz. The code below lets you identify the highest mean error and largest standard deviation in error for the group fit. In this case, that occurs at 3 Hz, suggesting potential issues with fit at the lower end of the examined frequency range.
 ```{python, message=FALSE, fig.height= 6, fig.width= 9}
 # Plot frequency-by-frequency error 
 compute_pointwise_error_fg(fg, plot_errors = True)
