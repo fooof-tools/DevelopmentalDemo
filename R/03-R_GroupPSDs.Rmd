@@ -414,7 +414,7 @@ grid.arrange(fig_a, fig_b, fig_c, fig_d, fig_e, nrow= 1)
 ```
 
 ### Plot raw power spectra
-Here, we provide additional code to plot the raw power spectra. In this case, we can transform data from wide to long format, and then plot individual (gray) and group averaged (blue) power across frequencies. 
+Here, we provide code to plot the raw power spectra. In this case, we can transform data from wide to long format, and then plot individual (gray) and group averaged (blue) power across frequencies. 
 ```{r}
 # Transform data from wide to long format
 dat_long <- read.csv("../Data/eop.csv", header= TRUE) %>% select(ID, X3:X40) %>%
