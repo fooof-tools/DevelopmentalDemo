@@ -1,4 +1,4 @@
-## R Markdown Examples
+# R Markdown Examples
 
 These notebooks introduce using spectral parameterization to developmental EEG data, using R.
 
@@ -19,7 +19,7 @@ This file applies spectral parameterization to a group of power spectra.
 This file does an example analysis of developmental EEG data with spectral parameterization.
 
 
-## Setting up Python in R Studio
+# Setting up Python in R Studio
 The installation instructions provide here correspond to the *01-R_PythonSetup.Rmd* script, and use the [reticulate](https://rstudio.github.io/reticulate/) package and [Miniconda](https://docs.conda.io/en/latest/miniconda.html) to access Python in R Studio.
 
 Install and load the *reticulate* package and *Miniconda*. For novice Python users, we recommend installing Miniconda—a small version of anaconda that includes conda, Python, their dependencies, and common functions—via the `install_miniconda` function from the *reticulate* package. It is important to install *Miniconda* in a separate code chunk after the *reticulate* package has been loaded. 
