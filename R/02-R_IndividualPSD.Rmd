@@ -6,7 +6,7 @@ output: html_document
 ---
 Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [GitHub](https://github.com/fooof-tools/DevelopmentalDemo) page for this project. Please check the Github page periodically for updates.
 
-Results are saved out to a **Output** folder for further consideration.
+Results are saved out to a **Output** folder for further consideration. Please note: In each Python code chunk, `message=FALSE` is set to suppress the reticulate message.
 
 
 ### Load R packages
@@ -125,16 +125,20 @@ print(template.format(error = err, exponent = exp, cfs = ' & '.join(map(str, [ro
 
 ### Plot flattened power spectrum
 It may be useful to plot a flattened power spectrum, with the aperiodic fit removed. 
-```{python}
+```{python, message=FALSE}
 # Set whether to plot in log-log space
 plt_log = False
+```
 
+```{python, message=FALSE}
 # Do an initial aperiodic fit - a robust fit, that excludes outliers
 init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
 
 # Recompute the flattened spectrum using the initial aperiodic fit
 init_flat_spec = fm.power_spectrum - init_ap_fit
+```
 
+```{python, message=FALSE}
 # Plot the flattened the power spectrum
 plot_spectrum(fm.freqs, init_flat_spec, plt_log, label = 'Flattened spectrum', color = 'black')
 plt.show()
@@ -186,7 +190,7 @@ write.csv(dat, "../Output/INDV_demo.csv", row.names= FALSE)
 ### Frequency-by-frequency error
 It can be useful to plot frequency-by-frequency error of the model fit, to identify where in frequency space the spectrum is (or is not) being fit well. When fitting individual spectrum, this can be accomplished using the `compute_pointwise_error_fm` function.
 
-In this case, we can see that error fluctuates around 0.05, which is the same as the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, around 6-9 Hz, and around 14 Hz. Further considerations may be necessary for this model fit.
+In this case, we can see that error fluctuates around 0.05, which is the same as the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, ~6-9 Hz, and ~14 Hz. Further considerations may be necessary for this model fit.
 ```{python, message=FALSE, fig.height= 6, fig.width= 9}
 # Plot frequency-by-frequency error 
 compute_pointwise_error_fm(fm, plot_errors = True)

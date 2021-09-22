@@ -6,7 +6,7 @@ output: html_document
 ---
 Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [GitHub](https://github.com/fooof-tools/DevelopmentalDemo) page for this project. Please check the Github page periodically for updates.
 
-Results are saved out to a **Output** folder for further consideration.
+Results are saved out to a **Output** folder for further consideration. Please note: In each Python code chunk, `message=FALSE` is set to suppress the reticulate message. 
 
 
 ### Load R packages
@@ -167,7 +167,9 @@ spectra_sub_array = spectra_sub.to_numpy()
 # Create frequency vector ranging from 2-20 Hz
 # NOTE: Python uses zero indexing
 freq1 = freqs[2:39]
+```
 
+```{python, message=FALSE}
 # Loop through each row to fit model for each participant in the subset
 for index, row in spectra_sub.iterrows():
   
@@ -175,7 +177,7 @@ for index, row in spectra_sub.iterrows():
   spectrum = spectra_sub.loc[[index]].transpose()[2:39]      
   spectrum = spectrum.to_numpy()
   spectrum = np.ravel(spectrum)
-
+  
   # Initialize a model object for spectral parameterization, with some settings
   fm = FOOOF(peak_width_limits = [2, 5], max_n_peaks = 4, min_peak_height = 0.05)
   
@@ -191,7 +193,9 @@ for index, row in spectra_sub.iterrows():
 # Create frequency vector ranging from 3-40 Hz
 # NOTE: Python uses zero indexing
 freq2 = freqs[4:79]
+```
 
+```{python, message=FALSE}
 # Loop through each row to fit model for each participant in the subset
 for index, row in spectra_sub.iterrows():
   
@@ -237,12 +241,12 @@ After selecting initial model fit settings, and fitting  power spectra from the 
 # This information is presented in the print_reports output as well
 fig, (ax0, ax1) = plt.subplots(1, 2, figsize = (14, 6))
 
-ax0.hist(r2s, density = True)
+ax0.hist(r2s)
 ax0.set_xlabel('Variance explained (R^2)', fontsize = 20)
 ax0.set_ylabel('Count', size = 20)
 ax0.tick_params(labelsize = 18)
 
-ax1.hist(err, density = True)
+ax1.hist(err)
 ax1.set_xlabel('Mean absolute error (MAE)', fontsize = 20)
 ax1.set_ylabel('Count', size = 20)
 ax1.tick_params(labelsize = 18)
@@ -293,10 +297,10 @@ Transferring specparam model objects into R allows a researcher to work within a
 ```{r}
 # Transfer periodic parameters to R data frame
 per <- as.data.frame(py$per) %>% 
-            rename(CF= 1, PW= 2, BW= 3, index= 4) %>% 
-            group_by(index) %>% mutate(peak_num= seq_along(CF), index= index + 1) %>% 
-            pivot_wider(id_col= index, names_from= peak_num, values_from= c(CF,PW,BW)) %>% 
-            select(index,CF_1,PW_1,BW_1,CF_2,PW_2,BW_2,CF_3,PW_3,BW_3,CF_4,PW_4,BW_4,CF_5,PW_5,BW_5,CF_6,PW_6,BW_6) 
+         rename(CF= 1, PW= 2, BW= 3, index= 4) %>% 
+         group_by(index) %>% mutate(peak_num= seq_along(CF), index= index + 1) %>% 
+         pivot_wider(id_col= index, names_from= peak_num, values_from= c(CF,PW,BW)) %>% 
+         select(index,CF_1,PW_1,BW_1,CF_2,PW_2,BW_2,CF_3,PW_3,BW_3,CF_4,PW_4,BW_4,CF_5,PW_5,BW_5,CF_6,PW_6,BW_6) 
 ```
 
 ```{r}
