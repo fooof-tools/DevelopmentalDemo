@@ -37,11 +37,11 @@ pip install -r requirements.txt
 
 The R example requires [R](https://www.r-project.org/), including the following modules:
 
-- [reticulate](https://rstudio.github.io/reticulate/)
-- [tidyverse](https://www.tidyverse.org/)
-- [gridExtra](https://github.com/baptiste/gridextra/wiki)
-- [psych](https://personality-project.org/r/psych-manual.pdf)
-- [magick](https://docs.ropensci.org/magick/articles/intro.html)
+- [reticulate](https://rstudio.github.io/reticulate/) to interface Python and R Studio
+- [tidyverse](https://www.tidyverse.org/) to access a collection of packages for data management
+- [gridExtra](https://github.com/baptiste/gridextra/wiki) to arrange multiple plots
+- [psych](https://personality-project.org/r/psych-manual.pdf) to access tools for data analysis
+- [magick](https://docs.ropensci.org/magick/articles/intro.html) to load and adjust .PNG files, if needed
 
 ## Reference
 
