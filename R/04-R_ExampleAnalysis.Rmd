@@ -12,7 +12,6 @@ Analyses for the illustrative example are based on the eyes-closed condition of 
 ```{r, message=FALSE}
 library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
 library(reticulate)  # Interface Python and R Studio
-library(magick)      # Load and adjust .PNG files
 library(gridExtra)   # Arrange multiple plots
 library(psych)       # Toolbox for data analysis
 ```
