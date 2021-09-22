@@ -30,17 +30,15 @@ The examples in this repository use and require Python >= 3.6.
 
 All examples require the [specparam](https://github.com/fooof-tools/fooof) module.
 
-In addition, the following Python modules are required:
-
-- [pandas](https://github.com/pandas-dev/pandas)
+Additional required Python modules are listed in `requirements.txt` file, and can be installed via *pip install -r requirements.txt* in the Terminal.
 
 The R example requires [R](https://www.r-project.org/), including the following modules:
 
 - [reticulate](https://rstudio.github.io/reticulate/)
 - [tidyverse](https://www.tidyverse.org/)
 - [gridExtra](https://github.com/baptiste/gridextra/wiki)
-- [magick](https://docs.ropensci.org/magick/articles/intro.html)
 - [psych](https://personality-project.org/r/psych-manual.pdf)
+- [magick](https://docs.ropensci.org/magick/articles/intro.html)
 
 ## Reference
 
