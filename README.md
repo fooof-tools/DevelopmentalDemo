@@ -30,11 +30,10 @@ The examples in this repository use and require Python >= 3.6.
 
 All examples require the [specparam](https://github.com/fooof-tools/fooof) module.
 
-Additional required Python modules are listed in `requirements.txt` file, and can be installed via 
+Additional required Python modules are listed in `requirements.txt` file, and can be installed in the Terminal via 
 ```
 pip install -r requirements.txt
 ```
-in the Terminal.
 
 The R example requires [R](https://www.r-project.org/), including the following modules:
 
