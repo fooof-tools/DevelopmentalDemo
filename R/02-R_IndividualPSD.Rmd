@@ -11,8 +11,8 @@ Results are saved out to a **Output** folder for further consideration. Please n
 
 ### Load R packages
 These packages are required for this tutorial. Install packages using the *install.packages()* function if needed.
-```{r, message= FALSE}
-library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
+```{r, message = FALSE}
+library(tidyverse)   # Access a collection of packages for data management 
 library(reticulate)  # Interface Python and R Studio
 library(magick)      # Load and adjust .PNG files
 library(gridExtra)   # Arrange multiple plots
@@ -20,7 +20,7 @@ library(gridExtra)   # Arrange multiple plots
 
 ### Load Python libraries
 Load the Python modules we need for this tutorial.
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Import some useful standard library modules
 import os
 from pathlib import Path
@@ -42,7 +42,7 @@ from fooof.analysis.error import compute_pointwise_error_fm
 ```
 
 ### Check specparam version
-```{python, message=FALSE}
+```{python, message = FALSE}
 import fooof
 print(fooof.__version__)
 ```
@@ -51,13 +51,13 @@ print(fooof.__version__)
 Load CSV files, including:
 - `freqs.csv`, which contains a vector of frequencies
 - `eopPSDs.csv`, which contains the power values for an individual power spectrum
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Load csv files containing frequency and power values
 freqs = np.ravel(pd.read_csv("../Data/freqs.csv"))
 spectrum = np.ravel(pd.read_csv("../Data/indv.csv"))[1:101]
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Check shape of loaded data
 print(freqs.shape)
 print(spectrum.shape)
@@ -65,20 +65,20 @@ print(spectrum.shape)
 
 ### Parameterize a power spectrum
 Now we can parameterize our power spectrum!
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Initialize a model object for spectral parameterization, with some settings
-fm = FOOOF(peak_width_limits = [2, 8], max_n_peaks = 6, min_peak_height = 0.05, verbose = False)
+fm = FOOOF(peak_width_limits = [1, 8], max_n_peaks = 6, min_peak_height = 0.10, verbose = False)
 ```
 
-```{python, message=FALSE, fig.height= 6, fig.width= 9}
+```{python, message = FALSE, fig.height = 6, fig.width = 9}
 # Fit individual PSD over 3-40 Hz range
 fm.report(freqs, spectrum, [3, 40])
 plt.show()
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Save out a copy of the model fit report
-fm.save_report('INDV_demo', file_path= '../Output')
+fm.save_report('INDV_demo', file_path = '../Output')
 
 # The following line can also be used to save out the model plot
 #fm.plot(save_fig = True, file_name = 'INDV_demo', file_path = '../Output')
@@ -86,7 +86,7 @@ fm.save_report('INDV_demo', file_path= '../Output')
 
 ### Access model fit information
 All of the model fit information is saved to the model object. Note that all attributes learned in the model fit process have a trailing underscore.
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Access the model fit parameters from the model object
 print('Aperiodic parameters: \n', fm.aperiodic_params_, '\n')
 print('Peak parameters: \n', fm.peak_params_, '\n')
@@ -99,25 +99,25 @@ print('Number of fit peaks: \n', fm.n_peaks_)
 
 ### Extract periodic and aperiodic parameters
 Another way to access model fit parameters is to use the `get_params` method, which can be used to access model fit attributes.
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Extract aperiodic and periodic parameter information
 aps = fm.get_params('aperiodic_params')
 peaks = fm.get_params('peak_params')
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Extract goodness of fit information
 err = fm.get_params('error')
 r2s = fm.get_params('r_squared')
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Extract specific parameters 
 exp = fm.get_params('aperiodic_params', 'exponent')
 cfs = fm.get_params('peak_params', 'CF')
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Print out a custom parameter report
 template = ("With an error level of {error:1.2f}, specparam fit an exponent of {exponent:1.2f} and peaks of {cfs:s} Hz.")
 print(template.format(error = err, exponent = exp, cfs = ' & '.join(map(str, [round(CF, 2) for CF in cfs]))))
@@ -125,12 +125,12 @@ print(template.format(error = err, exponent = exp, cfs = ' & '.join(map(str, [ro
 
 ### Plot flattened power spectrum
 It may be useful to plot a flattened power spectrum, with the aperiodic fit removed. 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Set whether to plot in log-log space
 plt_log = False
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Do an initial aperiodic fit - a robust fit, that excludes outliers
 init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
 
@@ -138,7 +138,7 @@ init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spect
 init_flat_spec = fm.power_spectrum - init_ap_fit
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Plot the flattened the power spectrum
 plot_spectrum(fm.freqs, init_flat_spec, plt_log, label = 'Flattened spectrum', color = 'black')
 plt.show()
@@ -151,59 +151,70 @@ Transferring specparam model objects into R allows a researcher to work within a
 ```{r}
 # Transfer periodic parameters to R data frame
 per <- as.data.frame(py$peaks) %>% 
-         rename(CF= 1, PW= 2, BW= 3) %>% 
-         mutate(peak_num= row_number()) %>% group_by(peak_num) %>% 
-         mutate(index= seq_along(CF)) %>%
-         pivot_wider(id_col= index, names_from= peak_num, values_from= c(CF,PW,BW)) %>% 
-         select(index,CF_1,PW_1,BW_1,CF_2,PW_2,BW_2) 
+         rename(CF = 1, PW = 2, BW = 3) %>% 
+         mutate(peak_num = row_number()) %>% 
+         group_by(peak_num) %>% 
+         mutate(index = seq_along(CF)) %>%
+         pivot_wider(id_col = index, names_from = peak_num, values_from = c(CF, PW, BW)) %>% 
+         select(index, CF_1, PW_1, BW_1, CF_2, PW_2, BW_2) 
 ```
 
 ```{r}
 # Transfer aperiodic parameters to R data frame
-aps <- as.data.frame(py$aps) %>% mutate(var= c("offset","exponent")) %>% spread(var,`py$aps`) %>% mutate(index= row_number()) %>% select(index,offset,exponent)
+aps <- as.data.frame(py$aps) %>% 
+         mutate(var = c("offset","exponent")) %>% 
+         spread(var, `py$aps`) %>% mutate(index = row_number()) %>% 
+         select(index, offset, exponent)
 ```
 
 ```{r}
 # Transfer group fit information to R data frame
-r2s <- as.data.frame(py$r2s) %>% rename(r2s= 1) %>% mutate(index= row_number())
-err <- as.data.frame(py$err) %>% rename(err= 1) %>% mutate(index= row_number())
+r2s <- as.data.frame(py$r2s) %>% 
+         rename(r2s = 1) %>% 
+         mutate(index = row_number())
+
+err <- as.data.frame(py$err) %>% 
+         rename(err = 1) %>% 
+         mutate(index = row_number())
 ```
 
 ```{r}
 # Pull IDs 
-IDs <- read.csv("../Data/indv.csv", header= TRUE) %>% select(ID) %>% mutate(index= row_number())  
+IDs <- read.csv("../Data/indv.csv", header = TRUE) %>% 
+         select(ID) %>% 
+         mutate(index = row_number())  
 
 # Join data frames
-dat <- full_join(IDs, per, by= "index") %>% 
-         full_join(aps, by= "index") %>%
-         full_join(r2s, by= "index") %>% 
-         full_join(err, by= "index") %>% 
+dat <- full_join(IDs, per, by = "index") %>% 
+         full_join(aps, by = "index") %>%
+         full_join(r2s, by = "index") %>% 
+         full_join(err, by = "index") %>% 
          select(-index) %>% arrange(ID)
 ```
 
 ### Save fit information
 ```{r}
 # Save out data frame as csv file
-write.csv(dat, "../Output/INDV_demo.csv", row.names= FALSE)
+write.csv(dat, "../Output/INDV_demo.csv", row.names = FALSE)
 ```
 
 ### Frequency-by-frequency error
 It can be useful to plot frequency-by-frequency error of the model fit, to identify where in frequency space the spectrum is (or is not) being fit well. When fitting individual spectrum, this can be accomplished using the `compute_pointwise_error_fm` function.
 
-In this case, we can see that error fluctuates around 0.05, which is the same as the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, ~6-9 Hz, and ~14 Hz. Further considerations may be necessary for this model fit.
-```{python, message=FALSE, fig.height= 6, fig.width= 9}
+In this case, we can see that error fluctuates around 0.06, which is the mean absolute error for the model (MAE). There are points in the spectrum where the model fit is somewhat poor, particularly < 4 Hz, ~6-9 Hz, and ~14 Hz. Further considerations may be necessary for this model fit.
+```{python, message = FALSE, fig.height = 6, fig.width = 9}
 # Plot frequency-by-frequency error 
 compute_pointwise_error_fm(fm, plot_errors = True)
 plt.show()
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Return the frequency-by-frequency errors
-errs_fm = compute_pointwise_error_fm(fm, plot_errors= False, return_errors = True)
+errs_fm = compute_pointwise_error_fm(fm, plot_errors = False, return_errors = True)
 errs_fm
 ```
 
-```{python, message=FALSE}
+```{python, message = FALSE}
 # Note that the average of this error is the same as the global error stored
 print('Average freq-by-freq error:\t {:1.3f}'.format(np.mean(errs_fm)))
 print('specparam model fit error: \t\t {:1.3f}'.format(fm.error_))
