@@ -66,13 +66,27 @@ print(spectrum.shape)
 ### Parameterize a power spectrum
 Now we can parameterize our power spectrum!
 ```{python, message = FALSE}
+# Define `peak_width_limit` setting
+peak_width = [1, 8]
+
+# Define `max_n_peaks` setting
+n_peaks = 6
+
+# Define `min_peak_height` setting
+peak_height = 0.10
+
+# Define frequency range
+PSD_range = [3, 40]
+```
+
+```{python, message = FALSE}
 # Initialize a model object for spectral parameterization, with some settings
-fm = FOOOF(peak_width_limits = [1, 8], max_n_peaks = 6, min_peak_height = 0.10, verbose = False)
+fm = FOOOF(peak_width_limits = peak_width, max_n_peaks = n_peaks, min_peak_height = peak_height, verbose = False)
 ```
 
 ```{python, message = FALSE, fig.height = 6, fig.width = 9}
 # Fit individual PSD over 3-40 Hz range
-fm.report(freqs, spectrum, [3, 40])
+fm.report(freqs, spectrum, PSD_range)
 plt.show()
 ```
 

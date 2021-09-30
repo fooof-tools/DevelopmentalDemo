@@ -177,7 +177,7 @@ spectra_sub = spectra_sub.sample(frac = 0.10, random_state = 1)
 spectra_sub_array = spectra_sub.to_numpy()
 ```
 
-Here, we define settings for two models to be fit and compared. A user could also use the `trim_spectrum` to define the frequency ranges for each mode; msee the [specparam website](https://fooof-tools.github.io/fooof/generated/fooof.utils.trim_spectrum.html#fooof.utils.trim_spectrum) for details on how to use this utility. 
+Here, we define settings for two models to be fit and compared. A user could also use the `trim_spectrum` to define the frequency ranges for each model; see the [specparam website](https://fooof-tools.github.io/fooof/generated/fooof.utils.trim_spectrum.html#fooof.utils.trim_spectrum) for details on how to use this utility. 
 ```{python, message = FALSE}
 # Create frequency vector for model #1 ("m1", 2-20 Hz) and model #2 ("m2", 3-40 Hz)
 # NOTE: Python uses zero indexing
