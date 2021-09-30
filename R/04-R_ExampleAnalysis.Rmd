@@ -4,392 +4,886 @@ subtitle: "Illustrative example using the spectral parameterization (specparam) 
 author: "Brendan Ostlund, Thomas Donoghue, Berenice Anaya, Kelley E. Gunther, Sarah L. Karalunas, Bradley Voytek, & Koraly E. Pérez-Edgar"
 output: html_document
 ---
-This R Markdown file corresponds to data analysis for a **Developmental Cognitive Neuroscience** manuscript submitted as part of a special issue on EEG methods in developmental science in May, 2021. Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [Open Science Framework](https://osf.io/efj6c/) and GitHub pages for this project.
+Participating families were a part of a study conducted by the [Cognition, Affect, and Temperament (CAT) lab, under the supervision of Koraly Pérez-Edgar](http://www.catlabpsu.com/) at Pennsylvania State University. The spectral parameterization ([specparam](https://fooof-tools.github.io/fooof/index.html)) algorithm was created by [Thomas Donoghue, Bradley Voytek, and colleagues from the Voytek lab](https://voyteklab.com/) at UC San Diego. Example data is available at the [GitHub](https://github.com/fooof-tools/DevelopmentalDemo) page for this project. Please check the Github page periodically for updates.
 
-Analyses for the illustrative example are based on the eyes-closed condition of a resting baseline task (*n* = 60). Please see the corresponding manuscript for more details. A few code chunks described the "R_groupPSD.Rmd" tutorial have been merged in the script below to reduce length.
-
-**Note:** Demographic information was reported in the manuscript but are not examined here in order to protect confidentiality of our participants.
-
-
-## **1.** Prepare data
-### Load data
-```{r}
-setwd(".././Data")
-
-data <- read.csv("ecl.csv", header= TRUE)
-PSDs <- read.csv("eclPSDs.csv", header= TRUE)
-freq <- read.csv("freqs.csv", header= TRUE)
-```
+Analyses for the illustrative example are based on the eyes-closed condition of a resting baseline task (*n* = 60). Please see the corresponding manuscript for more details. A few code chunks described the *03-R_GroupPSDs.Rmd* tutorial have been merged in the script below to reduce length. Demographic information was reported in the manuscript but are not examined here in order to protect confidentiality of our participants. Results are saved out to a **Output** folder for further consideration. Please note: In each Python code chunk, `message=FALSE` is set to suppress the reticulate message.
 
 ### Load R libraries
-```{r, message= FALSE}
-library(tidyverse)   # Access a collection of packages for data management (e.g., dplyr, ggplot2, readr)
+```{r, message = FALSE}
+library(tidyverse)   # Access a collection of packages for data management
 library(reticulate)  # Interface Python and R Studio
-library(magick)      # Load and adjust .PNG files
 library(gridExtra)   # Arrange multiple plots
-
 library(psych)       # Toolbox for data analysis
-library(sjstats)     # Toolbox for data analysis
-library(ggpubr)      # Additional tools for data visualization
 ```
 
-### Load python libraries
-```{python}
+### Load Python libraries
+```{python, message = FALSE}
+# Import some useful standard library modules
+import os
+from pathlib import Path
+
+# Import some general scientific python libraries
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
-from fooof import FOOOFGroup
+# Import the parameterization model group object
+from fooof import FOOOF, FOOOFGroup
+
+# Import useful parameterization related utilities and plot functions
 from fooof.bands import Bands
-from fooof.analysis import get_band_peak_fg
+from fooof.analysis import get_band_peak_fg 
+from fooof.plts.periodic import plot_peak_fits, plot_peak_params
+from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
+
+# Import utility functions that manipulate FOOOF objects
+from fooof.objs.utils import average_fg
+
+# Import functions to examine frequency-by-frequency error of model fits
+from fooof.analysis.error import compute_pointwise_error_fg
 ```
 
-### Miscellaneous functions
-The *extract_legend* function was created by [Joachim Schork](https://statisticsglobe.com/add-common-legend-to-combined-ggplot2-plots-in-r/). The *spread_n* function was pulled from this [post](https://community.rstudio.com/t/spread-with-multiple-value-columns/5378) from the RStudio Community website.
-``` {r}
-extract_legend <-
-  function(my_ggp) {
-    step1 <- ggplot_gtable(ggplot_build(my_ggp))
-    step2 <- which(sapply(step1$grobs, function(x) x$name)== "guide-box")
-    step3 <- step1$grobs[[step2]]
-    return(step3)
-    }
 
-spread_n <-
-  function(df, key, value) {
-    keyq <- rlang::enquo(key)
-    valueq <- rlang::enquo(value)
-    s <- rlang::quos(!!valueq)
-    df %>% gather(variable, value, !!!s) %>%
-    unite(temp, !!keyq, variable) %>%
-    spread(temp, value)
-    }
-```
-
-## **2.** Compare fitted group power spectra
+## Tuning the specparam algorithm 
 ### Load group PSDs
-```{python, message= FALSE}
-freqs = np.ravel(pd.read_csv("freqs.csv"))
-spectra = np.array(pd.read_csv("eclPSDs.csv"))
+```{python, message = FALSE}
+freqs = np.ravel(pd.read_csv("../Data/freqs.csv"))
+spectra = np.array(pd.read_csv("../Data/ecl.csv"))[:, 1:101]
 
 print(freqs.shape)
 print(spectra.shape)
 ```
 
-### Fit group PSDs
-```{python, warning= FALSE, message= FALSE}
-fg = FOOOFGroup(peak_width_limits= [1, 8], max_n_peaks= 8, min_peak_height= 0.05, verbose= 'FALSE')
-fg.fit(freqs, spectra, [1, 50])
-fg.print_results()
+### Test model fit settings on subset (10%) of data 
+```{python, message = FALSE}
+spectra_sub = pd.DataFrame(spectra)
+spectra_sub = spectra_sub.sample(frac = 0.10, random_state = 2)
 
-fg.save_report('ECL_example')
-fg.plot(save_fig= True, file_name= "ECL_example")
-
-fg_aps = fg.get_params('aperiodic_params')
-fg_r2s = fg.get_params('r_squared')
-fg_errors = fg.get_params('error')
-
-bands = Bands({'delta' : [1, 4],
-               'theta' : [4, 8],
-               'alpha' : [8, 13],
-               'beta' : [13, 30],
-               'gamma' : [30, 50]})
-
-deltas = get_band_peak_fg(fg, bands.delta)
-thetas = get_band_peak_fg(fg, bands.theta)
-alphas = get_band_peak_fg(fg, bands.alpha)
-betas =  get_band_peak_fg(fg, bands.beta)
-gammas = get_band_peak_fg(fg, bands.gamma)
+spectra_sub_array = spectra_sub.to_numpy()
 ```
 
-### Save to R data frame
-```{r, message= FALSE}
-aps <- as.data.frame(py$fg_aps) %>% rename(offset= 1, exponent= 2)
-r2s <- as.data.frame(py$fg_r2s) %>% rename(r2s= 1)
-err <- as.data.frame(py$fg_errors) %>% rename(error= 1)
+```{python, message = FALSE}
+# Create frequency vector for model #1 ("m1", 2-20 Hz) and model #2 ("m2", 3-40 Hz)
+# NOTE: Python uses zero indexing
+m1_freq = freqs[2:39]    
+m2_freq = freqs[4:79]    
 
-deltas <- as.data.frame(py$deltas) %>%
-           rename(CF_delta= 1, PW_delta= 2, BW_delta= 3) %>%
-           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
-thetas <- as.data.frame(py$thetas) %>%
-           rename(CF_theta= 1, PW_theta= 2, BW_theta= 3) %>%
-           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
-alphas <- as.data.frame(py$alphas) %>%
-           rename(CF_alpha= 1, PW_alpha= 2, BW_alpha= 3) %>%
-           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
-betas  <- as.data.frame(py$betas) %>%
-           rename(CF_beta= 1, PW_beta= 2, BW_beta= 3) %>%
-           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
-gammas <- as.data.frame(py$gammas) %>%
-           rename(CF_gamma= 1, PW_gamma= 2, BW_gamma= 3) %>%
-           mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
+# Define `peak_width_limit` for each model
+m1_peak_width = [2, 5]
+m2_peak_width = [1, 8]
 
-dat_param <- data %>%
-              select(ID:GRP) %>%
-              cbind(., aps, r2s, err, deltas, thetas, alphas, betas, gammas) %>%
-              mutate(GRP= recode(GRP, BLN= "BI", NT= "BN"))
-write.csv(dat_param, "ECL_example.csv", row.names= FALSE)
+# Define `max_n_peaks` for each model
+m1_n_peaks = 4
+m2_n_peaks = 6
+
+# Define `min_peak_height` for each model
+m1_peak_height = 0.05
+m2_peak_height = 0.10
+
+# Define frequency range for each model
+m1_PSD_range = [2, 20]
+m2_PSD_range = [3, 40]
+```
+
+```{python, message = FALSE}
+for index, row in spectra_sub.iterrows():
+  spectrum = spectra_sub.loc[[index]].transpose()[2:39]      
+  spectrum = spectrum.to_numpy()
+  spectrum = np.ravel(spectrum)
+  
+  fm = FOOOF(peak_width_limits = m1_peak_width, max_n_peaks = m1_n_peaks, min_peak_height = m1_peak_height)
+  fm.fit(m1_freq, spectrum, m1_PSD_range)
+  
+  fm.save_report(file_name = 'ECL_' + str(index) + '_fm1_settings', file_path = '../Output')
+  )
+```
+
+```{python, message = FALSE}
+for index, row in spectra_sub.iterrows():
+  spectrum = spectra_sub.loc[[index]].transpose()[4:79]     
+  spectrum = spectrum.to_numpy()
+  spectrum = np.ravel(spectrum)
+  
+  fm = FOOOF(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
+  fm.fit(m2_freq, spectrum, m2_PSD_range)
+  
+  fm.save_report(file_name = 'ECL_' + str(index) + '_fm2_settings', file_path = '../Output')
+  )
+```
+
+```{python, message = FALSE}
+# Initialize model objects for spectral parameterization, with some settings
+fg1 = FOOOFGroup(peak_width_limits = m1_peak_width, max_n_peaks = m1_n_peaks, min_peak_height = m1_peak_height)
+fg2 = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
+```
+
+```{python, message = FALSE}
+# Fit group PSD over the 2-20 Hz and 3-40 Hz ranges, respectively
+fg1.fit(freqs, spectra_sub_array, m1_PSD_range)
+fg2.fit(freqs, spectra_sub_array, m2_PSD_range)
+```
+
+```{python, message = FALSE}
+# Print and save subset results and plots of fit parameters, for further examination
+fg1.save_report(file_name = 'ECL_' + 'fg1_settings', file_path = '../Output')
+fg2.save_report(file_name = 'ECL_' + 'fg2_settings', file_path = '../Output')
+```
+
+### Inspect group power spectra
+Based on model fit results from the subset of participants, published findings, and our expectations of data in this sample, we will move forward with fitting the group power spectra over the 3-40 Hz frequency range with settings from the *fg2* model object.
+```{python, message = FALSE}
+# Initialize a model object for spectral parameterization, with some settings
+fg = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
+```
+
+```{python, message = FALSE}
+# Fit group PSD over the 3-40 Hz range
+fg.fit(freqs, spectra, m2_PSD_range)
+```
+
+```{python, message = FALSE}
+# Save out group results and plots of fit parameters
+fg.save_report('ECL_example', file_path = '../Output')
+```
+
+### Extract parameters
+```{python, message = FALSE}
+# Extract aperiodic and periodic parameters
+aps = fg.get_params('aperiodic_params')
+per = fg.get_params('peak_params')
+
+# Extract group fit information
+err = fg.get_params('error')
+r2s = fg.get_params('r_squared')
+```
+
+```{r}
+# Read in IDs 
+IDs <- read.csv("../Data/ecl.csv", header= TRUE) %>% 
+         select(ID) %>% 
+         mutate(index= row_number())  
+
+# Transfer periodic parameters to data frame
+per <- as.data.frame(py$per) %>% 
+            rename(CF = 1, PW = 2, BW = 3, index = 4) %>% 
+            group_by(index) %>% 
+            mutate(peak_num = seq_along(CF), index = index + 1) %>% 
+            pivot_wider(id_col = index, names_from = peak_num, values_from = c(CF, PW, BW)) %>% 
+            select(index,
+                   CF_1, PW_1, BW_1, CF_2, PW_2, BW_2, CF_3, PW_3, BW_3,
+                   CF_4, PW_4, BW_4, CF_5, PW_5, BW_5, CF_6, PW_6, BW_6)
+
+# Transfer aperiodic parameters to data frame
+aps <- as.data.frame(py$aps) %>% 
+         rename(offset = 1, exponent = 2) %>% 
+         mutate(index = row_number())
+
+# Transfer group fit information to data frame
+r2s <- as.data.frame(py$r2s) %>% 
+         rename(r2s = 1) %>% 
+         mutate(index = row_number())
+
+err <- as.data.frame(py$err) %>% 
+         rename(err = 1) %>% 
+         mutate(index = row_number())
+
+# Join data frames
+dat <- full_join(IDs, per, by = "index") %>%
+         full_join(aps, by = "index") %>% 
+         full_join(r2s, by = "index") %>% 
+         full_join(err, by = "index") %>% 
+         select(-index) %>% arrange(ID)
+```
+
+### Check model fits
+```{python, message = FALSE, fig.height = 6, fig.width = 14}
+# Plot distributions of goodness of fit parameters
+fig, (ax0, ax1) = plt.subplots(1, 2, figsize = (14, 6))
+
+ax0.hist(r2s)
+ax0.set_xlabel('Variance explained (R^2)', fontsize = 20)
+ax0.set_ylabel('Count', size = 20)
+ax0.tick_params(labelsize = 18)
+
+ax1.hist(err)
+ax1.set_xlabel('Mean absolute error (MAE)', fontsize = 20)
+ax1.set_ylabel('Count', size = 20)
+ax1.tick_params(labelsize = 18)
+
+fig.tight_layout()
+plt.show()
+```
+
+### Underfitting
+```{python, message = FALSE}
+# Extract all fits that are above some error threshold, for further examination.
+underfit_error_threshold = 0.10
+underfit_check = []
+for ind, res in enumerate(fg):
+    if res.error > underfit_error_threshold:
+        underfit_check.append(fg.get_fooof(ind, regenerate = True))
+```
+
+There were no instances of MAE > 0.10 when fitting power spectra from the eyes-closed condition.
+```{python, message = FALSE}
+# Loop through the problem fits and saving out reports to check later.
+for ind, fm in enumerate(underfit_check):
+  fm.save_report('ECL_UnderFit_ToCheck_#' + str(ind), file_path = '../Output')
+  )
+```
+
+### Overfitting
+```{python, message = FALSE}
+# Extract all fits that are below some error threshold, for further examination.
+overfit_error_threshold = 0.02
+overfit_check = []
+for ind, res in enumerate(fg):
+    if res.error < overfit_error_threshold:
+        overfit_check.append(fg.get_fooof(ind, regenerate = True))
+```
+
+There was one instance identified as possibly being overfit (MAE < 0.02), ID# 204. After additional consideration, we decided that the identified peaks and aperiodic fit were reasonable for this participant. This participant was retained for the illustrative example analyses. 
+```{python, message = FALSE}
+# Loop through the problem fits and saving out reports to check later.
+for ind, fm in enumerate(overfit_check):
+  fm.save_report('ECL_OverFit_ToCheck_#' + str(ind), file_path = '../Output')
+  )
+```
+
+### Frequency-by-frequency error
+```{python, message = FALSE, fig.height = 6, fig.width = 9}
+# Plot frequency-by-frequency error 
+compute_pointwise_error_fg(fg, plot_errors = True)
+plt.show()
+```
+
+```{python, message = FALSE}
+# Return the errors - this returns a 2D matrix of errors for all fits
+errs_fg = compute_pointwise_error_fg(fg, plot_errors = False, return_errors = True)
+
+# Check which frequency has the highest error
+f_max_err = fg.freqs[np.argmax(np.mean(errs_fg, 0))]
+print('Frequency with highest mean error: \t\t\t', f_max_err)
+
+# Check which frequency has the largest standard deviation of error
+f_max_std = fg.freqs[np.argmax(np.std(errs_fg, 0))]
+print('Frequency with highest standard deviation of error: \t', f_max_std)
+```
+
+
+## Primary analysis
+For illustrative purposes, we examine differences among children who were identified as behaviorally inhibited (BI; n = 30) and non-behaviorally inhibited (BN; n = 30). Group membership in the behaviorally inhibited group was determined by a total score of greater than/equal to 119 and/or a social novelty score greater than/equal to 60.  Descriptive information for these children is provided in the accompanying manuscript. 
+
+### Fit power spectra by group
+```{python, message = FALSE}
+spectra_BI = np.array(pd.read_csv("../Data/ecl_BI.csv"))[:, 1:101]
+spectra_BN = np.array(pd.read_csv("../Data/ecl_BN.csv"))[:, 1:101]
+```
+
+```{python, message = FALSE}
+# Initialize model objects for spectral parameterization, using settings from the preferred model determined above
+fg_BI = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height, verbose = False)
+fg_BN = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height, verbose = False)
+```
+
+```{python, message = FALSE}
+# Fit group PSD over the 3-40 Hz range
+fg_BI.fit(freqs, spectra_BI, m2_PSD_range)
+fg_BN.fit(freqs, spectra_BN, m2_PSD_range)
+```
+
+```{python, message = FALSE}
+# Print and save subset results and plots of fit parameters, for further examination
+fg_BI.save_report('specparam_ecl_BI', file_path = '../Output')
+fg_BN.save_report('specparam_ecl_BN', file_path = '../Output')
+```
+
+### Plot components by group
+```{python, message = FALSE}
+# Set up labels and colors for plotting
+colors = ['#E69F00', '#0072B2'] 
+labels = ['BI', 'BN']
+```
+
+```{python, message = FALSE}
+# Define frequency bands of interest
+bands = Bands({'theta' : [4, 8],
+               'alpha' : [8, 13],
+               'beta' : [13, 30]})
+```
+
+```{python, message=FALSE, fig.height= 6, fig.width= 8}
+# Extract theta peaks from each group
+BI_thetas = get_band_peak_fg(fg_BI, bands.theta)
+BN_thetas = get_band_peak_fg(fg_BN, bands.theta)
+```
+
+```{python, message = FALSE, fig.height = 6, fig.width = 8}
+# Extract alpha peaks from each group
+BI_alphas = get_band_peak_fg(fg_BI, bands.alpha)
+BN_alphas = get_band_peak_fg(fg_BN, bands.alpha)
+
+# Plot reconstructed alpha peaks
+plot_peak_fits([BI_alphas, BN_alphas], colors = colors)
+plt.show()
+```
+
+```{python, message = FALSE}
+# Extract beta peaks from each group
+BI_betas = get_band_peak_fg(fg_BI, bands.beta)
+BN_betas = get_band_peak_fg(fg_BN, bands.beta)
+```
+
+```{python, message = FALSE, fig.height = 6, fig.width = 8}
+# Extract the aperiodic parameters for each group
+BI_aps = fg_BI.get_params('aperiodic_params')
+BN_aps = fg_BN.get_params('aperiodic_params')
+
+# Plot aperiodic fits
+plot_aperiodic_fits([BI_aps, BN_aps], [3, 40], control_offset = True, log_freqs = False, labels = labels, colors = colors)
+plt.show()
+```
+
+```{python, message = FALSE}
+# Extract peak parameters for each group
+BI_per = fg_BI.get_params('peak_params')
+BN_per = fg_BN.get_params('peak_params')
+
+# Extract group fit information for each group
+BI_err = fg_BI.get_params('error')
+BN_err = fg_BN.get_params('error')
+
+BI_r2s = fg_BI.get_params('r_squared')
+BN_r2s = fg_BN.get_params('r_squared')
+```
+
+### Call python objects into R
+```{r}
+# Transfer periodic parameters to R data frame
+BI_per <- as.data.frame(py$BI_per) %>% 
+            rename(CF = 1, PW = 2, BW = 3, index = 4) %>% 
+            group_by(index) %>% 
+            mutate(peak_num = seq_along(CF), index = index + 1) %>% 
+            pivot_wider(id_col = index, names_from = peak_num, values_from = c(CF, PW, BW)) %>% 
+            select(index,
+                   CF_1, PW_1, BW_1, CF_2, PW_2, BW_2, CF_3, PW_3, BW_3, 
+                   CF_4, PW_4, BW_4, CF_5, PW_5, BW_5)
+
+BN_per <- as.data.frame(py$BN_per) %>% 
+            rename(CF= 1, PW= 2, BW= 3, index= 4) %>% 
+            group_by(index) %>% mutate(peak_num= seq_along(CF), index= index + 1) %>% 
+            pivot_wider(id_col= index, names_from= peak_num, values_from= c(CF,PW,BW)) %>% 
+            select(index,
+                   CF_1, PW_1, BW_1, CF_2, PW_2, BW_2, CF_3, PW_3, BW_3,
+                   CF_4, PW_4, BW_4, CF_5, PW_5, BW_5, CF_6, PW_6, BW_6)
+```
+
+```{r}
+# Transfer band-limited identified peaks to R data frame
+BI_thetas <- as.data.frame(py$BI_thetas) %>% 
+               rename(CF_theta = 1, PW_theta = 2, BW_theta = 3) %>%
+               mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+               mutate(index = row_number())
+
+BI_alphas <- as.data.frame(py$BI_alphas) %>% 
+               rename(CF_alpha = 1, PW_alpha = 2, BW_alpha = 3) %>% 
+               mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+               mutate(index = row_number())
+
+BI_betas  <- as.data.frame(py$BI_betas) %>% 
+               rename(CF_beta = 1, PW_beta = 2, BW_beta = 3) %>% 
+               mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+               mutate(index = row_number())
+
+BN_thetas <- as.data.frame(py$BN_thetas) %>% 
+               rename(CF_theta = 1, PW_theta = 2, BW_theta = 3) %>% 
+               mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+               mutate(index = row_number())
+
+BN_alphas <- as.data.frame(py$BN_alphas) %>% 
+               rename(CF_alpha = 1, PW_alpha = 2, BW_alpha = 3) %>%
+               mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+               mutate(index = row_number())
+
+BN_betas  <- as.data.frame(py$BN_betas) %>% 
+               rename(CF_beta = 1, PW_beta = 2, BW_beta = 3) %>%
+               mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+               mutate(index = row_number())
+```
+
+```{r}
+# Transfer aperiodic parameters to R data frame
+BI_aps <- as.data.frame(py$BI_aps) %>% 
+            rename(offset = 1, exponent = 2) %>% 
+            mutate(index = row_number())
+
+BN_aps <- as.data.frame(py$BN_aps) %>% 
+            rename(offset = 1, exponent = 2) %>% 
+            mutate(index = row_number())
+```
+
+```{r}
+# Transfer group fit information to R data frame
+BI_r2s <- as.data.frame(py$BI_r2s) %>% 
+            rename(r2s = 1) %>% 
+            mutate(index = row_number())
+
+BI_err <- as.data.frame(py$BI_err) %>% 
+            rename(err = 1) %>% 
+            mutate(index = row_number())
+
+BN_r2s <- as.data.frame(py$BN_r2s) %>% 
+            rename(r2s = 1) %>% 
+            mutate(index = row_number())
+
+BN_err <- as.data.frame(py$BN_err) %>% 
+            rename(err = 1) %>% 
+            mutate(index = row_number())
+```
+
+```{r}
+# Read in ID variable for each group
+BI_IDs <- read.csv("../Data/ecl_BI.csv", header = TRUE) %>% 
+            select(ID) %>% 
+            mutate(GRP = "BI", index = row_number())  
+
+BN_IDs <- read.csv("../Data/ecl_BN.csv", header = TRUE) %>% 
+            select(ID) %>% 
+            mutate(GRP = "BN", index = row_number())  
+```
+
+```{r}
+# Join data frames for each group
+dat_BI <- full_join(BI_IDs, BI_thetas, by = "index") %>% 
+            full_join(BI_alphas, by = "index") %>%
+            full_join(BI_betas, by = "index") %>%
+            full_join(BI_aps, by = "index") %>%
+            full_join(BI_r2s, by = "index") %>% 
+            full_join(BI_err, by = "index") %>% 
+            full_join(BI_per, by = "index") %>% 
+            select(-index)
+
+dat_BN <- full_join(BN_IDs, BN_thetas, by = "index") %>% 
+            full_join(BN_alphas, by = "index") %>%
+            full_join(BN_betas, by = "index") %>%
+            full_join(BN_aps, by = "index") %>% 
+            full_join(BN_r2s, by = "index") %>% 
+            full_join(BN_err, by = "index") %>% 
+            full_join(BN_per, by = "index") %>% 
+            select(-index)
+
+# Join group data frames
+dat <- full_join(dat_BI, dat_BN) %>% arrange(ID)
+```
+
+```{r}
+# Save out data frame 
+write.csv(dat, "../Output/BI_example.csv", row.names = FALSE)
 ```
 
 ### Descriptive information
-```{r, warning= FALSE, message= FALSE}
-dat_param %>% describe(skew= FALSE)
-dat_param %>% filter(GRP== "BI") %>% describe(skew= FALSE)
-dat_param %>% filter(GRP== "BN") %>% describe(skew= FALSE)
+```{r, message = FALSE, warning = FALSE}
+dat %>% select(-ID) %>% filter(GRP == "BI") %>% describe(skew = FALSE)
+dat %>% select(-ID) %>% filter(GRP == "BN") %>% describe(skew = FALSE)
 ```
 
-### Print group fit results
-```{r, message= FALSE}
-print(image_read(".././Data/ECL_example.png"))
-```
-
-### Plot periodic and aperiodic parameters
-```{r, warning= FALSE, fig.height= 5, fig.width= 17}
-fig5a <- ggplot(dat_param, aes(x= GRP, y= offset, fill= GRP)) +
-          geom_jitter(alpha= 0.7, width= 0.05, size= 2, aes(color= GRP)) +
-          theme_classic() +
-          labs(tag= "A)", title= "Offset") +
-          stat_summary(fun.y=mean, shape= 23, size= 1.5, color= c("coral4","cyan4")) +
-          scale_x_discrete(name= "", expand= c(1, 0), labels= NULL) +
-          scale_y_continuous(name= "", limits= c(0.25,2.25), breaks= seq(0.25,2.25,0.5), expand= c(0, 0)) +
-          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
-               plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
-          theme(legend.position= "none")
-
-fig5b <- ggplot(dat_param, aes(x= GRP, y= exponent, fill= GRP)) +
-          geom_jitter(alpha= 0.7, width= 0.05, size= 2, aes(color= GRP)) +
-          theme_classic() +
-          labs(tag= "B)", title= "Exponent") +
-          stat_summary(fun.y=mean, shape= 23, size= 1.5, color= c("coral4","cyan4")) +
-          scale_x_discrete(name= "", expand= c(1, 0), labels= NULL) +
-          scale_y_continuous(name= "", limits= c(0.25,2.25), breaks= seq(0.25,2.25,0.5), expand= c(0, 0)) +
-          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
-               plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
-          theme(legend.position= "none")
-
-fig5c <- ggplot(dat_param, aes(x= CF_theta, y= PW_theta, size= BW_theta, fill= BW_theta, color= GRP)) +
-          geom_point(alpha= 0.7) +
-          theme_classic() +
-          labs(tag= "C)", title= "Theta (4-8Hz)") +
-          scale_x_continuous(name= "Peak Frequency",
-                             limits= c(3.75,8.25), breaks= seq(4,8, by= 1), expand= c(0,0)) +
-          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
-          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
-                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
-          scale_size(range = c(4, 10)) +
-          geom_vline(xintercept= 6.61, linetype= "dashed", color= "coral3", size= 1.50) +
-          geom_vline(xintercept= 5.84, linetype= "dashed", color= "darkcyan", size= 1.50) +
-          theme(legend.position= "none")
-
-fig5d <- ggplot(dat_param, aes(x= CF_alpha, y= PW_alpha, size= BW_alpha, fill= BW_alpha, color= GRP)) +
-          geom_point(alpha= 0.7) +
-          theme_classic() +
-          labs(tag= "D)",  title= "Alpha (8-13Hz)") +
-          scale_x_continuous(name= "Peak Frequency",
-                             limits= c(7.75,13.25), breaks= seq(8,13, by= 1), expand= c(0,0)) +
-          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
-          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
-                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
-          scale_size(range = c(4, 10)) +
-          geom_vline(xintercept= 9.96, linetype= "dashed", color= "coral3", size= 1.50) +
-          geom_vline(xintercept= 9.64, linetype= "dashed", color= "darkcyan", size= 1.50) +
-          theme(legend.position= "none")
-
-fig5e <- ggplot(dat_param, aes(x= CF_beta, y= PW_beta, size= BW_beta, fill= BW_beta, color= GRP)) +
-          geom_point(alpha= 0.7) +
-          theme_classic() +
-          labs(tag= "E)", title= "Beta (13-30Hz)") +
-          scale_x_continuous(name= "Peak Frequency",
-                             limits= c(12.50,30.50), breaks= seq(13,30, by= 3), expand= c(0,0)) +
-          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
-          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
-                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
-          scale_size(range = c(4, 10)) +
-          geom_vline(xintercept= 18.62, linetype= "dashed", color= "coral3", size= 1.50) +
-          geom_vline(xintercept= 16.96, linetype= "dashed", color= "darkcyan", size= 1.50) +
-          theme(legend.position= "none")
-
-fig5f <- ggplot(dat_param, aes(x= CF_gamma, y= PW_gamma, size= BW_gamma, fill= BW_gamma, color= GRP)) +
-          geom_point(alpha= 0.7) +
-          theme_classic() +
-          labs(tag= "F)", title= "Gamma (30-50Hz)") +
-          scale_x_continuous(name= "Peak Frequency",
-                             limits= c(29.50,50.50), breaks= seq(30,50, by= 5), expand= c(0,0)) +
-          scale_y_continuous(name= "Power", limits= c(0,1.75), breaks= seq(-0,1.75, by= 0.25), expand= c(0,0)) +
-          theme(axis.text= element_text(size= 12, color= "black"), axis.title= element_text(size= 14),
-                plot.tag= element_text(face= "bold"), plot.title= element_text(face= "bold")) +
-          scale_size(range = c(4, 10)) +
-          geom_vline(xintercept= 36.39, linetype= "dashed", color= "coral3", size= 1.50) +
-          geom_vline(xintercept= 38.37, linetype= "dashed", color= "darkcyan", size= 1.50) +
-          theme(legend.position= "none")
-
-legend <- ggplot(dat_param, aes(x= CF_gamma, fill= GRP)) +
-           geom_density(alpha= 0.5) +
-           scale_fill_discrete(name= "", labels= c("BI", "BN")) +
-           theme(legend.position= "bottom") +
-           theme(legend.title= element_text(size= 16, face= "bold"), legend.text= element_text(size = 16),
-                 legend.key.height= unit(0.50, 'cm'), legend.key.width= unit(1, 'cm'))
-
-shared_legend <- extract_legend(legend)
-grid.arrange(arrangeGrob(fig5a, fig5b, fig5c, fig5d, fig5e, fig5f, nrow= 1), shared_legend, heights= c(8, 1))
-```
-
-### Group comparisons of periodic and aperiodic activity
+### Group comparisons
 ```{r}
-t.test(offset~ GRP, data= dat_param, var.equal= TRUE)
-t.test(exponent~ GRP, data= dat_param, var.equal= TRUE)
+# Aperiodic parameters
+t.test(offset ~ GRP, data = dat, var.equal = TRUE)
+t.test(exponent ~ GRP, data = dat, var.equal = TRUE)
 
-t.test(CF_alpha~ GRP, data= dat_param, var.equal= TRUE)
-t.test(PW_alpha~ GRP, data= dat_param, var.equal= TRUE)
-t.test(BW_alpha~ GRP, data= dat_param, var.equal= TRUE)
+# Alpha (8-13 Hz) parameters
+t.test(CF_alpha ~ GRP, data = dat, var.equal = TRUE)
+t.test(PW_alpha ~ GRP, data = dat, var.equal = TRUE)
+t.test(BW_alpha ~ GRP, data = dat, var.equal = TRUE)
 
-t.test(CF_beta~ GRP, data= dat_param, var.equal= TRUE)
-t.test(PW_beta~ GRP, data= dat_param, var.equal= TRUE)
-t.test(BW_beta~ GRP, data= dat_param, var.equal= TRUE)
+# Beta (13-30 Hz) parameters
+t.test(CF_beta ~ GRP, data = dat, var.equal = TRUE)
+t.test(PW_beta ~ GRP, data = dat, var.equal = TRUE)
+t.test(BW_beta ~ GRP, data = dat, var.equal = TRUE)
+
+# Goodness of fit parameters
+t.test(r2s ~ GRP, data = dat, var.equal = TRUE)
+t.test(err ~ GRP, data = dat, var.equal = TRUE)
 ```
 
-
-## **3.** Compare frontal alpha asymmetry calculation methods
-### Calculate frontal asymmetry using traditional analysis
+### Plot raw power spectra
 ```{r}
-trad <- read.csv("asm.csv", header= TRUE) %>%
-         select(-c(X01:X07,X14:X50)) %>%
-         mutate(X08= log10(X08), X09= log10(X09), X10= log10(X10),
-                X11= log10(X11), X12= log10(X12), X13= log10(X13)) %>%
-         mutate(alpha= mean_n(.[c(4:9)], 1)) %>%
-         select(ID,GRP,hem,alpha) %>%
-         spread(hem,alpha) %>%
-         mutate(ASM_trad= right - left)
+# Read in ID variable for each group
+BI_IDs <- read.csv("../Data/ecl_BI.csv", header = TRUE) %>% 
+            select(ID) %>% 
+            mutate(GRP = "BI")  
+
+BN_IDs <- read.csv("../Data/ecl_BN.csv", header = TRUE) %>% 
+            select(ID) %>% 
+            mutate(GRP = "BN") 
+
+# Merge IDs into data frame
+dat_IDs <- full_join(BI_IDs, BN_IDs)
+
+# Transform data from wide to long format
+dat_long <- read.csv("../Data/ecl.csv", header = TRUE) %>% 
+              left_join(dat_IDs,., by = "ID") %>% 
+              select(ID, GRP, X3:X40) %>%
+              gather(Hz, power, X3:X40) %>% arrange(ID) %>% 
+              mutate(Hz = as.numeric(gsub('\\X', '', Hz))) 
 ```
 
-### Calculate specparam frontal asymmetry
-#### Load group PSDs
-```{python}
-freqs= np.ravel(pd.read_csv("freqs.csv"))
-spectra= np.array(pd.read_csv("asmPSDs.csv"))
-print(freqs.shape)
-print(spectra.shape)
+```{r, fig.height = 5, fig.width = 5}
+# Set group colors
+colors <- c('#E69F00', '#0072B2')
+
+# Plot raw and mean power across frequencies
+ggplot(dat_long, aes(x = Hz, y = power, group = ID, color = GRP)) +
+  geom_line(alpha = 0.35, aes(color = GRP)) +
+  theme_classic() +
+  scale_color_manual(values = colors) +
+  stat_summary(aes(group = GRP), geom = "line", fun = mean, size = 1.5)  +
+  scale_x_continuous(name = "Frequency", 
+                     limits = c(3, 40), breaks = seq(0, 40, 5), expand = c(0, 0)) +
+  scale_y_log10(name = "Log(Power)") +
+  theme(axis.text.x = element_text(size = 11, color = "black"), 
+        axis.text.y = element_blank(), 
+        axis.title = element_text(size = 14)) +
+  theme(legend.position = "none")
 ```
 
-### Fit group PSDs
-```{python, warning= FALSE, message= FALSE}
-fg= FOOOFGroup(peak_width_limits= [1, 8], max_n_peaks= 8, min_peak_height= 0.05, verbose= 'FALSE')
-fg.fit(freqs, spectra, [1, 50])
-fg.print_results()
+### Plot periodic and aperiodic parameters 
+```{r, message = FALSE, warning = FALSE, fig.height = 8, fig.width = 14}
+# Set group colors
+colors <- c('#E69F00', '#0072B2')
 
-fg.save_report('ASM_example')
-fg.plot(save_fig= True, file_name= "ASM_example")
+# Offset
+fig_a <- ggplot(dat, aes(x = GRP, y = offset, fill = GRP)) +
+           geom_jitter(alpha = 0.7, width = 0.01, size = 2, aes(color = GRP)) +
+           theme_classic() +
+           scale_color_manual(values = colors) +
+           labs(title = "Offset") +
+           stat_summary(fun = mean, shape = 23, size = 1.10, fill = colors) +
+           scale_x_discrete(name = "", expand = c(1, 0), labels = NULL) +
+           scale_y_continuous(name = "", 
+                              limits = c(0.5, 2.5), breaks = seq(0.5, 2.5, 0.5), expand = c(0, 0)) +
+           theme(axis.text = element_text(size = 12, color = "black"), 
+                 axis.title = element_text(size = 14), 
+                 plot.title = element_text(face = "bold")) +
+           theme(legend.position = "none")
 
+# Exponent
+fig_b <- ggplot(dat, aes(x = GRP, y = exponent, fill = GRP)) +
+           geom_jitter(alpha = 0.7, width = 0.01, size = 2, aes(color = GRP)) +
+           theme_classic() +
+           scale_color_manual(values = colors) +
+           labs(title = "Exponent") +
+           stat_summary(fun = mean, shape = 23, size = 1.10, fill = colors) +
+           scale_x_discrete(name = "", expand = c(1, 0), labels = NULL) +
+           scale_y_continuous(name = "", 
+                              limits = c(0.5, 2.5), breaks = seq(0.5, 2.5, 0.5), expand = c(0, 0)) +
+           theme(axis.text = element_text(size = 12, color = "black"), 
+                 axis.title = element_text(size = 14),
+                 plot.title = element_text(face = "bold")) +
+           theme(legend.position = "none")
+
+# Theta peaks
+fig_c <- ggplot(dat, aes(x = CF_theta, y = PW_theta, size = BW_theta, fill = BW_theta, color = GRP)) +
+           geom_point(alpha = 0.7) +
+           theme_classic() +
+           scale_color_manual(values = colors) +
+           labs(title = "Theta (4-8Hz)") +
+           scale_x_continuous(name = "Center Frequency",
+                              limits = c(3.75, 8.25), breaks = seq(4, 8, 1), expand = c(0, 0)) +
+           scale_y_continuous(name = "Power", 
+                              limits = c(0, 1.85), breaks = seq(0, 1.75, 0.25), expand = c(0, 0)) +
+           theme(axis.text = element_text(size = 12, color = "black"), 
+                 axis.title = element_text(size = 14), 
+                 plot.title = element_text(face = "bold")) +
+           scale_size(range = c(4, 10)) +
+           geom_vline(xintercept = 6.65, linetype = "dashed", color = "#E69F00", size = 1.50) +
+           geom_vline(xintercept = 7.06, linetype = "dashed", color = "#0072B2", size = 1.50) +
+           theme(legend.position = "none")
+
+# Alpha peaks
+fig_d <- ggplot(dat, aes(x= CF_alpha, y= PW_alpha, size= BW_alpha, fill= BW_alpha, color= GRP)) +
+           geom_point(alpha= 0.7) +
+           theme_classic() +
+           scale_color_manual(values= colors) +
+           labs(title= "Alpha (8-13Hz)") +
+           scale_x_continuous(name = "Peak Frequency", 
+                              limits = c(7.75, 13.25), breaks = seq(8, 13, 1), expand = c(0, 0)) +
+           scale_y_continuous(name = "Power", 
+                              limits = c(0, 1.85), breaks = seq(0, 1.75, 0.25), expand = c(0, 0)) +
+           theme(axis.text = element_text(size = 12, color = "black"), 
+                 axis.title = element_text(size = 14), 
+                 plot.title = element_text(face = "bold")) +
+           scale_size(range = c(4, 10)) +
+           geom_vline(xintercept = 10.03, linetype = "dashed", color = "#E69F00", size = 1.50) +
+           geom_vline(xintercept = 9.50, linetype = "dashed", color = "#0072B2", size = 1.50) +
+           theme(legend.position = "none")
+
+# Beta peaks
+fig_e <- ggplot(dat, aes(x = CF_beta, y = PW_beta, size = BW_beta, fill = BW_beta, color = GRP)) +
+           geom_point(alpha = 0.7) +
+           scale_color_manual(values = colors) +
+           theme_classic() +
+           labs(title = "Beta (13-30Hz)") +
+           scale_x_continuous(name = "Peak Frequency", 
+                              limits = c(12.50, 30.50), breaks = seq(13, 30, 3), expand = c(0, 0)) +
+           scale_y_continuous(name = "Power", 
+                              limits = c(0, 1.85), breaks = seq(0, 1.75, 0.25), expand = c(0, 0)) +
+           theme(axis.text = element_text(size = 12, color = "black"), 
+                 axis.title = element_text(size = 14), 
+                 plot.title = element_text(face = "bold")) +
+           scale_size(range = c(4, 10)) +
+           geom_vline(xintercept = 18.09, linetype = "dashed", color = "#E69F00", size = 1.50) +
+           geom_vline(xintercept = 17.43, linetype = "dashed", color = "#0072B2", size = 1.50) +
+           theme(legend.position = "none")
+
+# Arrange plots
+grid.arrange(fig_c, fig_d, fig_e, fig_a, fig_b, nrow = 2)
+```
+
+### Relative power
+For illustrative purposes, we calculated relative power in the alpha (8-13 Hz) and beta (13-30 Hz) frequency bands to compare to the aperiodic-adjusted parameters estimated by specparam. Relative power was calculated by dividing summed power in the predefined frequency bands by total power summed across the examined frequencies (3-40 Hz).
+```{r}
+dat <- read.csv("../Output/BI_example.csv", header = TRUE)
+
+# Calculate power based on canonical bands
+pwr <- read.csv("../Data/ecl.csv", header = TRUE) %>% 
+         select(ID,X3:X40) %>% 
+         rowwise() %>% 
+         mutate(total_power = sum(c(X3, X3.5, X4, X4.5, X5, X5.5, X6, X6.5, X7, X7.5, X8, X8.5, X9, X9.5, X10,
+                                    X10.5, X11, X11.5, X12, X12.5, X13, X13.5, X14, X14.5, X15, 
+                                    X15.5, X16, X16.5, X17, X17.5, X18, X18.5, X19, X19.5, X20,
+                                    X20.5, X21, X21.5, X22, X22.5, X23, X23.5, X24, X24.5, X25, 
+                                    X25.5, X26, X26.5, X27, X27.5, X28, X28.5, X29, X29.5, X30,
+                                    X30.5, X31, X31.5, X32, X32.5, X33, X33.5, X34, X34.5, X35,
+                                    X35.5, X36, X36.5, X37, X37.5, X38, X38.5, X39, X39.5, X40)), 
+                alpha_abs = sum(c(X8, X8.5, X9, X9.5, X10, X10.5, X11, X11.5, X12, X12.5, X13)), 
+                beta_abs = sum(c(X13, X13.5, X14, X14.5, X15, X15.5, X16, X16.5, X17, X17.5, X18, X18.5, X19, X19.5,
+                                 X20, X20.5, X21, X21.5, X22, X22.5, X23, X23.5, X24, X24.5, X25, X25.5, X26, X26.5,
+                                 X27, X27.5, X28, X28.5, X29, X29.5, X30))) %>% 
+         mutate(alpha_rel = (alpha_abs / total_power) * 100, beta_rel = (beta_abs / total_power) * 100) %>% 
+         select(-c(X4:X40))
+
+dat <- left_join(dat, pwr, by = "ID")
+```
+
+```{r, warning = FALSE, fig.height = 6, fig.width = 12}
+# Group differences in relative alpha power
+t.test(alpha_rel ~ GRP, data = dat, var.equal = TRUE)
+
+a1 <- ggplot(dat, aes(x = GRP, y = alpha_rel, fill = GRP)) +
+        geom_jitter(alpha = 0.7, width = 0.05, size = 2, aes(color = GRP)) +
+        theme_classic() +
+        scale_color_manual(values = colors) +
+        labs(title = "Relative alpha power") +
+        stat_summary(fun = mean, shape = 23, size = 1.5, fill = c('#E69F00', '#0072B2')) +
+        scale_x_discrete(name = "", expand = c(1, 0), labels = c("BI","BN")) +
+        scale_y_continuous(name = "", limits = c(0, 100), breaks= seq(0, 100, 25), expand = c(0, 0)) +
+        theme(axis.text = element_text(size = 12, color = "black"), 
+              axis.title = element_text(size = 14), 
+              plot.title = element_text(face = "bold")) +
+        theme(legend.position = "none")
+
+# Group differences in relative beta power
+t.test(beta_rel ~ GRP, data = dat, var.equal = TRUE)
+
+a2 <- ggplot(dat, aes(x = GRP, y = beta_rel, fill= GRP)) +
+        geom_jitter(alpha = 0.7, width = 0.05, size = 2, aes(color = GRP)) +
+        theme_classic() +
+        scale_color_manual(values = colors) +
+        labs(title = "Relative beta power") +
+        stat_summary(fun = mean, shape = 23, size = 1.5, fill = c('#E69F00', '#0072B2')) +
+        scale_x_discrete(name= "", expand= c(1, 0), labels= c("BI","BN")) +
+        scale_y_continuous(name= "", 
+                           limits = c(0, 100), breaks = seq(0, 100, 25), expand = c(0, 0)) +
+        theme(axis.text = element_text(size = 12, color = "black"), 
+              axis.title = element_text(size = 14), 
+              plot.title = element_text(face = "bold")) +
+        theme(legend.position = "none")
+
+# Visualize group differences
+grid.arrange(a1, a2, nrow = 1)
+```
+
+### BIQ (continuous) comparisons
+```{r}
+# Read in BIQ data
+biq <- read.csv("../Data/biq.csv", header = TRUE) %>% 
+         filter(COND == "ECL") %>% 
+         select(-COND) 
+```
+
+```{r}
+# Join with main data frame
+dat <- left_join(dat, biq, by = c("ID", "GRP"))
+```
+
+```{r}
+# Correlation between total BIQ scores and aperiodic-adjusted alpha 
+cor.test(dat$Total_BIQ, dat$CF_alpha)
+cor.test(dat$Total_BIQ, dat$PW_alpha)
+
+# Correlation between total BIQ scores and relative alpha power 
+cor.test(dat$Total_BIQ, dat$alpha_rel)
+```
+
+```{r, warning = FALSE, fig.height = 5, fig.width = 5}
+# Association between BIQ scores and alpha center frequency (specparam)
+reg1 <- lm(CF_alpha ~ Total_BIQ, data = dat)                      
+int1 <- coefficients(reg1)[1]
+slp1 <- coefficients(reg1)[2]
+
+# Visualize the association
+ggplot(dat, aes(x = Total_BIQ, y = CF_alpha, fill = GRP)) +
+  geom_jitter(alpha = 0.7, width = 0.05, size = 2.5, aes(color = GRP)) +
+  theme_classic() +
+  scale_color_manual(values = colors) +
+  geom_abline(intercept = int1, slope = slp1, 
+              color = "grey20", linetype = "dashed", size = 1.25) +
+  scale_x_continuous(name = "Total BIQ score", 
+                     limits = c(35, 175), breaks = seq(35, 175, 15), expand = c(0, 0)) +
+  scale_y_continuous(name = "Alpha center frequency", 
+                     limits = c(7.75, 13), breaks = seq(8, 13, 1), expand = c(0, 0)) +
+  theme(axis.text = element_text(size = 11, color = "black"), 
+        axis.title = element_text(size= 13)) +
+  theme(legend.position = "none")
+```
+
+```{r, warning = FALSE, fig.height = 5, fig.width = 5}
+# Association between BIQ scores and alpha power (specparam)
+reg2 <- lm(PW_alpha ~ Total_BIQ, data = dat)                      
+int2 <- coefficients(reg2)[1]
+slp2 <- coefficients(reg2)[2]
+
+# Visualize the association
+ggplot(dat, aes(x = Total_BIQ, y = PW_alpha, fill = GRP)) +
+  geom_jitter(alpha = 0.7, width = 0.05, size = 2.5, aes(color = GRP)) +
+  theme_classic() +
+  scale_color_manual(values = colors) +
+  geom_abline(intercept = int2, slope = slp2,
+              color = "grey20", linetype = "dashed", size = 1.25) +
+  scale_x_continuous(name = "Total BIQ score", 
+                     limits = c(35, 175), breaks = seq(35, 175, 15), expand = c(0, 0)) +
+  scale_y_continuous(name = "Aperiodic-adj. alpha power", 
+                     limits = c(0,2.5), breaks = seq(0,2.5,0.5), expand = c(0, 0)) +
+  theme(axis.text = element_text(size = 11, color = "black"), 
+        axis.title = element_text(size = 13)) +
+  theme(legend.position = "none")
+```
+
+```{r, warning = FALSE, fig.height = 5, fig.width = 5}
+# Association between BIQ scores and relative alpha power (traditional method)
+reg3 <- lm(alpha_rel ~ Total_BIQ, data = dat)                      
+int3 <- coefficients(reg3)[1]
+slp3 <- coefficients(reg3)[2]
+
+# Visualize the association
+ggplot(dat, aes(x = Total_BIQ, y = alpha_rel, fill = GRP)) +
+  geom_jitter(alpha = 0.7, width = 0.05, size = 2.5, aes(color = GRP)) +
+  theme_classic() +
+  scale_color_manual(values = colors) +
+  geom_abline(intercept = int3, slope = slp3, 
+              color = "grey20", linetype = "dashed", size = 1.25) +
+  scale_x_continuous(name = "Total BIQ score", 
+                     limits = c(35, 175), breaks = seq(35, 175, 15), expand = c(0, 0)) +
+  scale_y_continuous(name = "Relative alpha power", 
+                     limits = c(0, 100), breaks = seq(0, 100, 25), expand = c(0, 0)) +
+  theme(axis.text = element_text(size = 11, color = "black"), 
+        axis.title = element_text(size = 13)) +
+  theme(legend.position = "none")
+```
+
+
+## Supplementary analyses
+### Frontal asymmetry
+As a supplement to the illustrative example, we compare frontal asymmetry calculated via the traditional method and via specparam. The traditional method considers how log-transformed alpha power, averaged across a cluster of electrodes in a predefined frequency band, differs between the right and left hemisphere.
+```{python, message = FALSE}
+# Load data
+freq_asm = np.ravel(pd.read_csv("../Data/freqs.csv"))[4:79]
+spectra_asm = np.array(pd.read_csv("../Data/asm.csv"))[:, 2:83]
+```
+
+```{python, message = FALSE}
+# Fit group PSDs
+fg_asm = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
+fg_asm.fit(freq_asm, spectra_asm, m2_PSD_range)
+```
+
+```{python, message = FALSE}
+# Extract alpha peaks
 band = Bands({'alpha' : [8, 13]})
-alphas= get_band_peak_fg(fg, band.alpha)
-fg_aps= fg.get_params('aperiodic_params')
+asm_alphas = get_band_peak_fg(fg_asm, band.alpha)
 ```
 
-#### Save to R dataframe
-```{r, warning= FALSE, message= FALSE}
-alphas <- as.data.frame(py$alphas) %>%
-            rename(CF_alpha= 1, PW_alpha= 2, BW_alpha= 3) %>%
-            mutate_at(vars(1:3), ~ifelse(.== "NaN", NA, .))
+```{r}
+# Transfer band-limited identified alpha peaks to R data frame
+asm_alphas <- as.data.frame(py$asm_alphas) %>% 
+                rename(CF_alpha = 1, PW_alpha = 2, BW_alpha = 3) %>% 
+                mutate_at(vars(1:3), ~ifelse(. == "NaN", NA, .)) %>% 
+                mutate(index = row_number())
 
-aps <- as.data.frame(py$fg_aps) %>% rename(offset= 1, exponent= 2)
+# Read in ID and hemisphere variables
+asm_IDs <- read.csv("../Data/asm.csv", header = TRUE) %>% 
+             select(ID, hem) %>% mutate(index = row_number())  
 
-asm <- read.csv("asm.csv", header= TRUE) %>%
-        select(ID:hem) %>%
-        cbind(alphas, aps)
-
-write.csv(asm, "ASM_example.csv", row.names= FALSE)
-
-specparam <- asm %>%
-              group_by(ID) %>%
-              filter(!is.na(PW_alpha)) %>%
-              summarise(missing_lat= all(PW_alpha== PW_alpha[1L])) %>%
-              filter(missing_lat== FALSE) %>%
-              left_join(., asm, by= "ID") %>%
-              select(ID,GRP,hem,PW_alpha,exponent) %>%
-              spread_n(hem,c(PW_alpha,exponent)) %>%
-              mutate(ASM_param= right_PW_alpha - left_PW_alpha, exp_lateralized= right_exponent - left_exponent)
-
-asm.wide <- left_join(trad, specparam, by= c("ID","GRP")) %>% mutate(GRP= recode(GRP, BLN= "BI", NT= "BN"))
+# Join data frames 
+dat_asm <- full_join(asm_IDs, asm_alphas, by = "index") %>% select(-index)
 ```
 
-### Compare measurement approaches
-```{r, warning= FALSE, fig.height= 5, fig.width= 5}
-asm.wide %>% filter(GRP== "BI") %>% select(ASM_trad,ASM_param) %>% describe(skew= FALSE)
-asm.wide %>% filter(GRP== "BN") %>% select(ASM_trad,ASM_param) %>% describe(skew= FALSE)
+```{r}
+# Calculate average alpha power (log-transformed) 
+asm_trad <- read.csv("../Data/asm.csv", header = TRUE) %>%
+              select(ID, hem, X8:X13) %>%
+              mutate_at(vars(X8:X13), log) %>%
+              rowwise() %>% 
+              mutate(avg_pwr = mean(c(X8, X8.5, X9, X9.5, X10, X10.5, X11, X11.5, X12, X12.5, X13))) %>%
+              select(ID, hem, avg_pwr)
 
-
-fig5g <- ggscatter(asm.wide, x= "ASM_trad", y= "ASM_param", color= "GRP", size= 3, alpha= 0.7) +
-          theme_classic() +
-          scale_x_continuous(name= "Frontal asymmetry (traditional)",
-                             limits= c(-.40,.45), breaks= seq(-.40,0.5,0.2), expand= c(0, 0)) +
-          scale_y_continuous(name= "Frontal asymmetry (specparam)",
-                             limits= c(-.40,.45), breaks= seq(-.40,0.5,0.2), expand= c(0, 0)) +
-          annotate("text", x= 0.25, y= -0.25, label= "r(55) = 0.01, p = ns", fontface= "bold", size= 4) +
-          theme(legend.position= "none")
-xplot <- ggdensity(asm.wide, "ASM_trad", fill= "GRP") +
-          clean_theme() +
-          theme(legend.position= "none")
-yplot <- ggdensity(asm.wide, "ASM_param", fill= "GRP") +
-          clean_theme() +
-          theme(legend.position= "none") +
-          rotate()
-layout1 <- rbind(c(2,2,2,NA), c(1,1,1,3), c(1,1,1,3), c(1,1,1,3))
-grid.arrange(arrangeGrob(fig5g, xplot, yplot, layout_matrix= layout1), shared_legend, heights= c(8, 1))
-
-
-cor.test(asm.wide$ASM_trad, asm.wide$ASM_param, method= "pearson")
-
-t.test(ASM_trad~ GRP, data= asm.wide, var.equal= TRUE)
-t.test(ASM_param~ GRP, data= asm.wide, var.equal= TRUE)
-
-
-asm.long <- asm.wide %>%
-             group_by(ID) %>%
-             select(ID,GRP,ASM_trad,ASM_param) %>%
-             gather("ASM_trad", "ASM_param", key= Method, value= Score) %>%
-             arrange(ID)
-
-asm.long_trad <- asm.long %>% filter(Method== "ASM_trad")
-wilcox.test(Score ~ GRP, data= asm.long_trad, exact= FALSE, conf.int= TRUE, conf.level= 0.95)
-
-asm.long_spec <- asm.long %>% filter(Method== "ASM_param")
-wilcox.test(Score ~ GRP, data= asm.long_spec, exact= FALSE, conf.int= TRUE, conf.level= 0.95)
+# Join data frames 
+dat_asm <- full_join(dat_asm, asm_trad, by = c("ID", "hem")) 
 ```
 
-### Examine exponent lateralization
-```{r, warning= FALSE, fig.height= 4, fig.width= 7}
-diff <- asm.wide$right_exponent - asm.wide$left_exponent
-barplot(diff, col= "coral", xlab= "Observation", ylab= "Difference (right – left)")
-cor.test(asm.wide$right_exponent, asm.wide$left_exponent, method= "pearson")
+```{r}
+# Read in GRP variable 
+GRPs <- read.csv("../Output/BI_example.csv", header = TRUE) %>% select(ID, GRP)
 
+# Calculate frontal asymmetry variables
+asm <- dat_asm %>%
+         pivot_wider(names_from = hem, 
+                     values_from = c(CF_alpha, PW_alpha, BW_alpha, avg_pwr)) %>%
+         mutate(ASM_trad = avg_pwr_right - avg_pwr_left, 
+                ASM_specparam = PW_alpha_right - PW_alpha_left) %>%
+         full_join(., GRPs, by = "ID") %>% select(ID, GRP, everything())
+```
 
-asm.wide %>% filter(GRP== "BI") %>% select(exp_lateralized) %>% describe(skew= FALSE)
-asm.wide %>% filter(GRP== "BN") %>% select(exp_lateralized) %>% describe(skew= FALSE)
+Note: there is one BI participant (ID# 236) who did not show an alpha peak after accounting for aperiodic activity.
+```{r}
+# Descriptive information by group
+asm %>% filter(GRP == "BI") %>% select(ASM_trad, ASM_specparam) %>% describe(skew = FALSE)
+asm %>% filter(GRP == "BN") %>% select(ASM_trad, ASM_specparam) %>% describe(skew = FALSE)
+```
 
-exp1 <- ggplot(asm.wide, aes(sample= exp_lateralized)) +
-         theme_classic() +
-         geom_qq() + geom_qq_line(color= '#56B4E9') + labs(x= "") +
-         scale_y_continuous(name= "", limits= c(-0.40,0.50), expand= c(0, 0)) +
-         theme(axis.text= element_text(size= 10, color= "black"))
-exp2 <- ggplot(asm.wide, aes(y= exp_lateralized)) +
-         theme_classic() +
-         geom_boxplot(size= 1, outlier.colour= "#D55E00", outlier.shape= 8, outlier.size= 4) + labs(x= "") +
-         scale_y_continuous(name= "", limits= c(-0.40,0.50), expand= c(0, 0)) +
-         theme(axis.text.y= element_text(size= 10, color= "black"), axis.text.x= element_text(color= "white"))
-exp3 <- ggplot(asm.wide, aes(x= GRP, y= exp_lateralized, fill= GRP)) +
-         geom_jitter(alpha= 0.7, width= 0.05, size= 2, aes(color= GRP)) +
-         theme_classic() +
-         stat_summary(fun.y= mean, shape= 23, size= 1.5, color= c("coral4","cyan4")) +
-         scale_x_discrete(name= "", expand= c(1, 0)) +
-         scale_y_continuous(name= "Lateralized exponent (right-left)", limits= c(-0.40,0.50), expand= c(0, 0)) +
-         theme(axis.text.y= element_text(size= 10, color= "black"),
-               axis.text.x= element_text(size= 13, color= "black"),
-               axis.title= element_text(size= 12)) +
-         theme(legend.position= "none")
-layout2 <- rbind(c(1,2,3,3), c(1,2,3,3), c(1,2,3,3))
-grid.arrange(arrangeGrob(exp1, exp2, exp3, layout_matrix= layout2))
+```{r}
+# Group comparison based on method
+t.test(ASM_trad ~ GRP, data = asm, var.equal = TRUE)
+t.test(ASM_specparam ~ GRP, data = asm, var.equal = TRUE)
+```
 
+```{r, warning = FALSE, fig.height = 5, fig.width = 6}
+# Correlation between specparam and traditional methods
+cor.test(asm$ASM_trad, asm$ASM_specparam)
 
-t.test(exp_lateralized~ GRP, data= asm.wide, var.equal= TRUE)
-
-cor.test(asm.wide$exp_lateralized, asm.wide$ASM_trad, method= "pearson")
+# Association between BIQ scores and relative alpha power (traditional method)
+ggplot(asm, aes(x = ASM_specparam, y = ASM_trad, fill = GRP)) +
+  geom_jitter(alpha = 0.7, width = 0.05, size = 2.5, aes(color = GRP)) +
+  theme_classic() +
+  scale_color_manual(values = colors) +
+  scale_x_continuous(name = "Frontal asymmetry (specparam)", 
+                     limits = c(-0.65, 0.65), breaks = seq(-0.6, 0.6, 0.3), expand = c(0, 0)) +
+  scale_y_continuous(name = "Frontal asymmetry (traditional)",
+                     limits = c(-0.65, 0.65), breaks = seq(-0.6, 0.6, 0.3), expand = c(0, 0)) +
+  theme(axis.text = element_text(size = 11, color = "black"), 
+        axis.title = element_text(size = 13)) +
+  theme(legend.position = "none")
 ```

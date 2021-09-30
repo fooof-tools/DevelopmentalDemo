@@ -1,2 +1,5 @@
 fooof
 pandas
+numpy
+matplotlib
+pathlib
