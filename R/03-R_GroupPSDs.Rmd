@@ -225,7 +225,7 @@ m2_freq, m2_spectra = trim_spectrum(freqs, spectra_subsample, m2_PSD_range)
 
 #### Fit models, with different settings
 ```{python, message = FALSE}
-# Fit a model object with model 1 settings
+# Fit model object with model 1 settings
 fg1 = FOOOFGroup(peak_width_limits = m1_peak_width, max_n_peaks = m1_n_peaks, min_peak_height = m1_peak_height)
 fg1.fit(m1_freq, m1_spectra)
 
@@ -237,7 +237,7 @@ for ind in range(len(fg1)):
 ```
 
 ```{python, message = FALSE}
-# Fit a model object with model 2 settings
+# Fit model object with model 2 settings
 fg2 = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
 fg2.fit(m2_freq, m2_spectra)
 
@@ -260,6 +260,12 @@ settings1 = FOOOFSettings(peak_width_limits= m1_peak_width, max_n_peaks = m1_n_p
 settings2 = FOOOFSettings(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, 
                           min_peak_height = m2_peak_height, peak_threshold = 2.,
                           aperiodic_mode = 'fixed')
+```
+
+```{python, message = FALSE}
+# Initialize model object for spectral parameterization, with some settings
+fg1 = FOOOFGroup(*settings1)
+fg2 = FOOOFGroup(*settings2)
 ```
 
 #### Fit models with group model object

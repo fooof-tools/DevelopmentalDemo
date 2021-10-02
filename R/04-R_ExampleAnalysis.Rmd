@@ -39,9 +39,6 @@ from fooof.plts import plot_spectrum
 from fooof.plts.periodic import plot_peak_fits, plot_peak_params
 from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
 
-# # Import utility functions that manipulate FOOOF objects
-# from fooof.objs.utils import average_fg
-
 # Import functions to examine frequency-by-frequency error of model fits
 from fooof.analysis.error import compute_pointwise_error_fg
 ```
