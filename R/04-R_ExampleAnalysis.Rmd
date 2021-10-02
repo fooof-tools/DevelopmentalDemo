@@ -33,11 +33,14 @@ from fooof import FOOOF, FOOOFGroup
 # Import useful parameterization related utilities and plot functions
 from fooof.bands import Bands
 from fooof.analysis import get_band_peak_fg 
+from fooof.utils import trim_spectrum
+from fooof.data import FOOOFSettings
+from fooof.plts import plot_spectrum
 from fooof.plts.periodic import plot_peak_fits, plot_peak_params
 from fooof.plts.aperiodic import plot_aperiodic_params, plot_aperiodic_fits
 
-# Import utility functions that manipulate FOOOF objects
-from fooof.objs.utils import average_fg
+# # Import utility functions that manipulate FOOOF objects
+# from fooof.objs.utils import average_fg
 
 # Import functions to examine frequency-by-frequency error of model fits
 from fooof.analysis.error import compute_pointwise_error_fg
@@ -54,20 +57,28 @@ print(freqs.shape)
 print(spectra.shape)
 ```
 
-### Test model fit settings on subset (10%) of data 
 ```{python, message = FALSE}
-spectra_sub = pd.DataFrame(spectra)
-spectra_sub = spectra_sub.sample(frac = 0.10, random_state = 2)
-
-spectra_sub_array = spectra_sub.to_numpy()
+# Get the number of participants
+n_subjs = spectra.shape[0]
+print('There are {:d} participants'.format(n_subjs))
 ```
 
+#### Subsample (10%) spectra to compare between models
 ```{python, message = FALSE}
-# Create frequency vector for model #1 ("m1", 2-20 Hz) and model #2 ("m2", 3-40 Hz)
-# NOTE: Python uses zero indexing
-m1_freq = freqs[2:39]    
-m2_freq = freqs[4:79]    
+# Set random seed
+np.random.seed(2)
 
+# Define settings for subsampling a selection of power spectra
+subsample_frac = 0.10
+n_sample = int(n_subjs * subsample_frac)
+
+# Select a random selection of spectra to explore
+select = np.random.choice(n_subjs, int(n_subjs * subsample_frac), replace = False)
+spectra_subsample = spectra[select, :]
+```
+
+#### Define settings for each model
+```{python, message = FALSE}
 # Define `peak_width_limit` for each model
 m1_peak_width = [2, 5]
 m2_peak_width = [1, 8]
@@ -79,60 +90,63 @@ m2_n_peaks = 6
 # Define `min_peak_height` for each model
 m1_peak_height = 0.05
 m2_peak_height = 0.10
+```
 
+#### Set frequency ranges for each model
+To sub-select frequency ranges, we will use the `trim_spectrum` function to extract frequency ranges of interest for each model.
+```{python, message = FALSE}
 # Define frequency range for each model
 m1_PSD_range = [2, 20]
 m2_PSD_range = [3, 40]
+
+# Sub-select frequency ranges
+m1_freq, m1_spectra = trim_spectrum(freqs, spectra_subsample, m1_PSD_range)
+m2_freq, m2_spectra = trim_spectrum(freqs, spectra_subsample, m2_PSD_range)
 ```
 
+#### Fit models, with different settings
 ```{python, message = FALSE}
-for index, row in spectra_sub.iterrows():
-  spectrum = spectra_sub.loc[[index]].transpose()[2:39]      
-  spectrum = spectrum.to_numpy()
-  spectrum = np.ravel(spectrum)
-  
-  fm = FOOOF(peak_width_limits = m1_peak_width, max_n_peaks = m1_n_peaks, min_peak_height = m1_peak_height)
-  fm.fit(m1_freq, spectrum, m1_PSD_range)
-  
-  fm.save_report(file_name = 'ECL_' + str(index) + '_fm1_settings', file_path = '../Output')
-  )
-```
-
-```{python, message = FALSE}
-for index, row in spectra_sub.iterrows():
-  spectrum = spectra_sub.loc[[index]].transpose()[4:79]     
-  spectrum = spectrum.to_numpy()
-  spectrum = np.ravel(spectrum)
-  
-  fm = FOOOF(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
-  fm.fit(m2_freq, spectrum, m2_PSD_range)
-  
-  fm.save_report(file_name = 'ECL_' + str(index) + '_fm2_settings', file_path = '../Output')
-  )
-```
-
-```{python, message = FALSE}
-# Initialize model objects for spectral parameterization, with some settings
+# Fit a model object with model 1 settings
 fg1 = FOOOFGroup(peak_width_limits = m1_peak_width, max_n_peaks = m1_n_peaks, min_peak_height = m1_peak_height)
-fg2 = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
+fg1.fit(m1_freq, m1_spectra)
+
+# Create individual reports for model 1 settings
+for ind in range(len(fg1)):
+  temp_model = fg1.get_fooof(ind, regenerate = True)
+  temp_model.save_report(file_name = 'ECL_' + str(ind) + '_fm1_settings', file_path = '../Output')
+  )
 ```
 
+```{python, message = FALSE}
+# Fit a model object with model 2 settings
+fg2 = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
+fg2.fit(m2_freq, m2_spectra)
+
+# Create individual reports for the model 2 settings
+for ind in range(len(fg2)):
+  temp_model = fg2.get_fooof(ind, regenerate = True)
+  temp_model.save_report(file_name = 'ECL_' + str(ind) + '_fm2_settings', file_path = '../Output')
+  )
+```
+
+#### Fit models with group model object
+Note that when fitting power spectra, you can specify a fit range to fit the model to, so you don't have to explicitly trim the spectra. Here we will refit the example data, specifying the fit range, and then save the group reports. 
 ```{python, message = FALSE}
 # Fit group PSD over the 2-20 Hz and 3-40 Hz ranges, respectively
-fg1.fit(freqs, spectra_sub_array, m1_PSD_range)
-fg2.fit(freqs, spectra_sub_array, m2_PSD_range)
+fg1.fit(freqs, spectra_subsample, m1_PSD_range)
+fg2.fit(freqs, spectra_subsample, m2_PSD_range)
 ```
 
 ```{python, message = FALSE}
-# Print and save subset results and plots of fit parameters, for further examination
+# Save subset results and plots of fit parameters, for further examination
 fg1.save_report(file_name = 'ECL_' + 'fg1_settings', file_path = '../Output')
 fg2.save_report(file_name = 'ECL_' + 'fg2_settings', file_path = '../Output')
 ```
 
-### Inspect group power spectra
+### Fit power spectra with selected settings
 Based on model fit results from the subset of participants, published findings, and our expectations of data in this sample, we will move forward with fitting the group power spectra over the 3-40 Hz frequency range with settings from the *fg2* model object.
 ```{python, message = FALSE}
-# Initialize a model object for spectral parameterization, with some settings
+# Initialize a model object for spectral parameterization
 fg = FOOOFGroup(peak_width_limits = m2_peak_width, max_n_peaks = m2_n_peaks, min_peak_height = m2_peak_height)
 ```
 
