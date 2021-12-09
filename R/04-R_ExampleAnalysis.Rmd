@@ -898,3 +898,127 @@ ggplot(asm, aes(x = ASM_specparam, y = ASM_trad, fill = GRP)) +
         axis.title = element_text(size = 13)) +
   theme(legend.position = "none")
 ```
+
+### Plot averaged raw vs. specparam-estimated power spectra
+Another option for visualizing the data is to plot overlapping averaged raw and specparam-estimated power spectra, which we do for each group here.
+```{python, message = FALSE}
+# Sub-select frequency ranges for each group
+BI_freq, BI_power = trim_spectrum(freqs, spectra_BI, m2_PSD_range)
+BN_freq, BN_power = trim_spectrum(freqs, spectra_BN, m2_PSD_range)
+```
+
+```{python, message = FALSE}
+# Define styling for each line
+line_kwargs = [
+    
+    # First line (data average)
+    {'color' : 'black', 
+     'linewidth' : 2.5,
+     'alpha' : 1.0},
+    
+    # Second line (model average)
+    {'color' : 'red', 
+     'linewidth' : 2.5,
+     'alpha' : 0.75},
+    
+    # Third line (aperiodic components)
+    {'color' : 'blue', 
+     'linewidth' : 2.5,
+     'linestyle' : '--',
+     'alpha' : 0.6}
+]
+
+# Define labels that get used in the legend
+labels = ['Raw data', 'Periodic component', 'Aperiodic component']
+```
+
+```{python, message = FALSE}
+# Compute the average model (from values)
+BI_mod_vals = []
+BI_ap_vals = []
+
+for ind in range(len(fg_BI)):
+    tfm = fg_BI.get_fooof(ind, regenerate=True)
+    BI_mod_vals.append(tfm.fooofed_spectrum_)
+    BI_ap_vals.append(tfm._ap_fit)
+    
+BI_mod_avg = np.mean(np.array(BI_mod_vals), 0)
+BI_ap_avg = np.mean(np.array(BI_ap_vals), 0)
+```
+
+```{python, message = FALSE}
+# Compute the average of the power spectrum data
+BI_dat_avg = np.mean(np.log10(BI_power), 0)
+```
+
+```{python, message = FALSE, fig.height = 7, fig.width = 9}
+# Create the plot
+plot_spectra(fg_BI.freqs, [BI_dat_avg, BI_mod_avg, BI_ap_avg], labels = labels)
+
+# Grab the figure object
+ax = plt.gca()
+
+# Loop across lines, customizing style
+for line, kwargs in zip(ax.get_lines(), line_kwargs):
+    line.set(**kwargs)
+    
+# Redraw the legend, updating colors & setting font size
+plt.legend(fontsize = 15)
+
+# Add some text to the figure 
+ax.text(0.04, 0.1, 'Average error : {:1.2f}'.format(fg_BI.get_params('error').mean()),
+        fontsize = 16, transform = ax.transAxes)
+ax.text(0.04, 0.05, 'Average r-squared: {:1.2f}'.format(fg_BI.get_params('r_squared').mean()),
+        fontsize = 16, transform = ax.transAxes)
+
+# Print figure to console
+plt.show()
+```
+
+```{python, message = FALSE}
+# # Save figure (if desired)
+#plt.savefig('../Data/BI_avg_plt.png')
+```
+
+```{python, message = FALSE}
+# Compute the average model (from values)
+BN_mod_vals = []
+BN_ap_vals = []
+
+for ind in range(len(fg_BN)):
+    tfm = fg_BN.get_fooof(ind, regenerate=True)
+    BN_mod_vals.append(tfm.fooofed_spectrum_)
+    BN_ap_vals.append(tfm._ap_fit)
+    
+BN_mod_avg = np.mean(np.array(BN_mod_vals), 0)
+BN_ap_avg = np.mean(np.array(BN_ap_vals), 0)
+```
+
+```{python, message = FALSE}
+# Compute the average of the power spectrum data
+BN_dat_avg = np.mean(np.log10(BN_power), 0)
+```
+
+```{python, message = FALSE, fig.height = 7, fig.width = 9}
+# Create the plot
+plot_spectra(fg_BN.freqs, [BN_dat_avg, BN_mod_avg, BN_ap_avg], labels = labels)
+
+# Grab the figure object
+ax = plt.gca()
+
+# Loop across lines, customizing style
+for line, kwargs in zip(ax.get_lines(), line_kwargs):
+    line.set(**kwargs)
+    
+# Redraw the legend, updating colors & setting font size
+plt.legend(fontsize = 15)
+
+# Add some text to the figure (if wanted - comment out if not)
+ax.text(0.04, 0.1, 'Average error : {:1.2f}'.format(fg_BN.get_params('error').mean()),
+        fontsize = 16, transform = ax.transAxes)
+ax.text(0.04, 0.05, 'Average r-squared: {:1.2f}'.format(fg_BN.get_params('r_squared').mean()),
+        fontsize = 16, transform = ax.transAxes)
+
+# Print figure to console
+plt.show()
+```
