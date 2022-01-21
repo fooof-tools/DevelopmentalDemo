@@ -1,25 +1,29 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you reference this tutorial, please cite it as below."
 preferred-citation:
   type: article
   authors:
   - family-names: "Ostlund"
-    given-names: "Brendan D"
+    given-names: "Brendan"
+    orcid: "https://orcid.org/0000-0002-2166-7707"
   - family-names: "Donoghue"
     given-names: "Thomas"
     orcid: "https://orcid.org/0000-0001-5911-0472"
   - family-names: "Anaya"
     given-names: "Berenice"
   - family-names: "Gunther"
-    given-names: "Kelley"
+    given-names: "Kelley E"
   - family-names: "Karalunas"
-    given-names: "Sarah"
+    given-names: "Sarah L"
   - family-names: "Voytek"
     given-names: "Bradley"
     orcid: "https://orcid.org/0000-0003-1640-2525"
-  - family-names: "Perez-Edgar"
-    given-names: "Koraly"
-  doi: "10.31234/osf.io/btqyk"
-  journal: "PsyArXiv"
+  - family-names: "Pérez-Edgar"
+    given-names: "Koraly E"
+    orcid: "https://orcid.org/0000-0003-4051-9563"
+  doi: "10.1016/j.dcn.2022.101073"
+  journal: "Developmental Cognitive Neuroscience"
   title: "Spectral parameterization for studying neurodevelopment: How and why"
-  year: 2021
+  volume: 54
+  year: 2022
+  start: 101073
